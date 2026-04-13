@@ -41,6 +41,11 @@ interface provider {
     /// ID computation (e.g., ["region"]).
     identity-attributes: func() -> list<string>;
 
+    /// Validate a value against a provider-defined custom type.
+    /// Returns Ok(()) if valid or the type is unknown.
+    /// Returns Err(message) if the value is invalid for the given type.
+    validate-custom-type: func(type-name: string, value: string) -> result<_, string>;
+
     /// Returns JSON-serialized HashMap<String, HashMap<String, HashMap<String, String>>>
     /// for DSL enum alias resolution.
     /// Structure: resource_type -> attr_name -> alias -> canonical_value.
