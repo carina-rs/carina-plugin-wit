@@ -15,6 +15,13 @@ interface types {
         list-val(string),
         /// JSON-encoded object
         map-val(string),
+        /// JSON-encoded inner value of a host-side secret. Provider plugins
+        /// SHOULD treat the inner as the operational value (e.g. send it to
+        /// the cloud API) but MUST NOT log or persist it. Plain providers
+        /// that don't care about the distinction can decode it the same way
+        /// they decode str-val/list-val/map-val. The host wraps the original
+        /// value back into a Secret on the way out.
+        secret-val(string),
     }
 
     record state {
