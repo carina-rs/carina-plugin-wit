@@ -27,7 +27,25 @@ interface provider {
     read-data-source: func(res: resource-def) -> result<state, string>;
 
     create: func(res: resource-def) -> result<state, string>;
-    update: func(id: resource-id, identifier: string, current: state, to: resource-def) -> result<state, string>;
+
+    /// Update an existing resource toward the desired `to` state.
+    ///
+    /// `changed-attributes` is the set of attribute keys the user explicitly
+    /// intends to add, replace, or remove on this update; fields not in this
+    /// list MUST be left untouched by the provider. The host computes this
+    /// list by diffing the user's current desired configuration against the
+    /// previously-recorded desired configuration in state, so it excludes
+    /// provider-returned computed fields and fields the user has never
+    /// specified. Providers that build partial-update payloads (e.g.
+    /// CloudControl JSON Patch) MUST gate their patch operations on this
+    /// list rather than comparing `current` and `to` directly.
+    update: func(
+        id: resource-id,
+        identifier: string,
+        current: state,
+        to: resource-def,
+        changed-attributes: list<string>,
+    ) -> result<state, string>;
 
     /// options is JSON-serialized provider options map
     delete: func(id: resource-id, identifier: string, options: string) -> result<_, string>;
