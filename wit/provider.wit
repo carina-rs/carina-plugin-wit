@@ -8,6 +8,7 @@ interface provider {
         read-request,
         update-request,
         delete-request,
+        provider-error,
     };
 
     /// Returns JSON-serialized ProviderInfo
@@ -23,8 +24,8 @@ interface provider {
     /// fixed on the host without rebuilding providers.
     provider-config-attribute-types: func() -> string;
 
-    validate-config: func(attrs: list<tuple<string, value>>) -> result<_, string>;
-    initialize: func(attrs: list<tuple<string, value>>) -> result<_, string>;
+    validate-config: func(attrs: list<tuple<string, value>>) -> result<_, provider-error>;
+    initialize: func(attrs: list<tuple<string, value>>) -> result<_, provider-error>;
 
     /// Read the current provider-side state of an existing resource.
     ///
@@ -35,14 +36,14 @@ interface provider {
         id: resource-id,
         identifier: string,
         request: read-request,
-    ) -> result<state, string>;
+    ) -> result<state, provider-error>;
 
     /// Read a data source resource. Receives the full `resource-def` so
     /// providers can see user-supplied input attributes (e.g. the
     /// `user_name` for `aws.identitystore.user`). Zero-input data sources
     /// should still route through `read` on the host side — callers
     /// dispatch on `resource.is_data_source()` before picking this path.
-    read-data-source: func(res: resource-def) -> result<state, string>;
+    read-data-source: func(res: resource-def) -> result<state, provider-error>;
 
     /// Create the resource described by `request.res` and return the
     /// resulting state. (`res` rather than `resource` because `resource`
@@ -50,7 +51,7 @@ interface provider {
     create: func(
         id: resource-id,
         request: create-request,
-    ) -> result<state, string>;
+    ) -> result<state, provider-error>;
 
     /// Update an existing resource by applying `request.patch`.
     ///
@@ -74,18 +75,19 @@ interface provider {
         id: resource-id,
         identifier: string,
         request: update-request,
-    ) -> result<state, string>;
+    ) -> result<state, provider-error>;
 
     /// Delete an existing resource.
     ///
-    /// `request.options` is the JSON-serialized provider options map.
-    /// Wrapping the parameter in a record lets future fields (e.g.
-    /// lifecycle hints) be added without breaking the `delete` signature.
+    /// `request.lifecycle` carries the resource's lifecycle policy
+    /// (force-delete, create-before-destroy, prevent-destroy). Wrapping
+    /// the parameter in a record lets future fields be added without
+    /// breaking the `delete` signature.
     delete: func(
         id: resource-id,
         identifier: string,
         request: delete-request,
-    ) -> result<_, string>;
+    ) -> result<_, provider-error>;
 
     /// Returns JSON-serialized HashMap<String, Vec<CompletionValue>> where key is
     /// the config attribute name (e.g., "region") and value is a list of completion
@@ -98,8 +100,9 @@ interface provider {
 
     /// Validate a value against a provider-defined custom type.
     /// Returns Ok(()) if valid or the type is unknown.
-    /// Returns Err(message) if the value is invalid for the given type.
-    validate-custom-type: func(type-name: string, value: string) -> result<_, string>;
+    /// Returns Err(invalid-input(...)) if the value is invalid for the
+    /// given type.
+    validate-custom-type: func(type-name: string, value: string) -> result<_, provider-error>;
 
     /// Returns JSON-serialized HashMap<String, HashMap<String, HashMap<String, String>>>
     /// for DSL enum alias resolution.

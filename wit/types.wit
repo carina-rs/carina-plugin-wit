@@ -102,10 +102,77 @@ interface types {
 
     /// Per-operation request record for `provider.delete`.
     ///
-    /// `options` is a JSON-serialized provider options map. Wrapping it in
-    /// a record lets future fields (e.g. lifecycle hints) be added without
-    /// breaking the `delete` signature.
+    /// `lifecycle` carries the resource's lifecycle policy (force-delete,
+    /// create-before-destroy, prevent-destroy). Wrapping it in a record
+    /// lets future fields be added without breaking the `delete` signature.
     record delete-request {
-        options: string,
+        lifecycle: lifecycle-config,
+    }
+
+    /// Lifecycle policy for a resource.
+    ///
+    /// New fields (e.g. `ignore-changes`, `replace-triggered-by`) are
+    /// non-breaking record extensions. Mirrors
+    /// `carina_core::resource::LifecycleConfig`.
+    record lifecycle-config {
+        /// Force-delete the resource on `delete` (e.g. non-empty S3
+        /// buckets, IAM users with attached policies).
+        force-delete: bool,
+        /// Create the new resource before destroying the old one during
+        /// replacement.
+        create-before-destroy: bool,
+        /// Reject `delete` operations entirely; surfaces a
+        /// `prevent-destroy` provider-error instead of attempting the
+        /// API call.
+        prevent-destroy: bool,
+    }
+
+    /// Structured error returned by every provider operation.
+    ///
+    /// Variants are mutually exclusive — host code can match exhaustively
+    /// to dispatch retry / abort / not-found / escalate strategies in a
+    /// type-safe way. Each variant carries an `error-detail` with the
+    /// human-readable message and contextual fields (`resource-id`,
+    /// `cause`, `provider-name`).
+    variant provider-error {
+        /// User-supplied input is invalid (bad attribute value, schema
+        /// violation, configuration mismatch). Not retriable.
+        invalid-input(error-detail),
+        /// The cloud API rejected the request (HTTP 4xx/5xx, server-side
+        /// error). May be retriable depending on the cause; the host
+        /// inspects `error-detail.cause` for further classification.
+        api-error(error-detail),
+        /// Resource was not found at the cloud API. `read` returns this
+        /// instead of an empty state when the underlying resource has
+        /// been deleted out-of-band. `delete` returns this when the
+        /// resource is already gone.
+        not-found(error-detail),
+        /// Operation timed out before completing. Retriable with
+        /// backoff.
+        timeout(error-detail),
+        /// Provider-internal failure (panic, unexpected state, missing
+        /// schema entry, etc.). Should be escalated as a bug rather
+        /// than retried.
+        internal(error-detail),
+    }
+
+    /// Contextual metadata attached to every `provider-error` variant.
+    ///
+    /// Fields mirror the existing `carina_core::provider::ProviderError`
+    /// host-side struct. The `cause` chain is flattened to a string
+    /// because WIT cannot represent `dyn std::error::Error`.
+    record error-detail {
+        /// Human-readable message.
+        message: string,
+        /// Resource the error pertains to, if known.
+        resource-id: option<resource-id>,
+        /// Flattened representation of the underlying cause chain, if
+        /// any. Empty when the error has no upstream cause.
+        cause: option<string>,
+        /// Provider name (e.g. `aws`, `awscc`) when the error is
+        /// raised at provider-init / `create-provider` boundary points
+        /// where the name is known but no specific resource is in
+        /// scope.
+        provider-name: option<string>,
     }
 }
