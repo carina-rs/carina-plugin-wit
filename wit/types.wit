@@ -34,4 +34,145 @@ interface types {
         id: resource-id,
         attributes: list<tuple<string, value>>,
     }
+
+    /// Kind of a single `patch-op`.
+    ///
+    /// `add` and `replace` carry `some(value)` on the patch-op; `remove`
+    /// carries `none`.
+    variant patch-op-kind {
+        /// User added a key that did not previously appear in the desired state.
+        add,
+        /// User changed the value of an existing key in the desired state.
+        replace,
+        /// User removed a key that previously appeared in the desired state.
+        remove,
+    }
+
+    record patch-op {
+        kind: patch-op-kind,
+        /// Top-level attribute name. Nested-field patches are a future extension.
+        key: string,
+        /// `some(_)` for `add` and `replace`; `none` for `remove`.
+        value: option<value>,
+    }
+
+    /// A structured description of the user's intended change to a resource.
+    ///
+    /// Each `patch-op` corresponds to a key the user explicitly specified or
+    /// removed in the desired state. Fields the user has never specified do
+    /// not appear in the patch. Providers MUST NOT modify any attribute that
+    /// is not represented in `ops`.
+    record update-patch {
+        ops: list<patch-op>,
+    }
+
+    /// Per-operation request record for `provider.create`.
+    record create-request {
+        /// Full desired state for the new resource. Named `res` because
+        /// `resource` is a reserved keyword in WIT.
+        res: resource-def,
+    }
+
+    /// Per-operation request record for `provider.read`.
+    ///
+    /// Has no operationally meaningful fields today; the record exists so
+    /// future fields (e.g. a freshness hint or an attribute projection)
+    /// can be added without breaking the `read` signature. The single
+    /// `reserved` field is a placeholder because the wasm component model
+    /// rejects records with zero fields — providers MUST ignore it.
+    record read-request {
+        reserved: bool,
+    }
+
+    /// Per-operation request record for `provider.update`.
+    ///
+    /// `current` is the current provider-side state; `patch` is the user's
+    /// intended changes only. The patch is the sole source of truth for
+    /// what the provider should write — there is no separate `to: resource`
+    /// because exposing the full desired resource invites providers to
+    /// touch fields the user never specified (the root cause of
+    /// `carina-rs/carina#2559`).
+    ///
+    /// Named `current` rather than `from` because `from` is a reserved
+    /// keyword in WIT.
+    record update-request {
+        current: state,
+        patch: update-patch,
+    }
+
+    /// Per-operation request record for `provider.delete`.
+    ///
+    /// `lifecycle` carries the resource's lifecycle policy (force-delete,
+    /// create-before-destroy, prevent-destroy). Wrapping it in a record
+    /// lets future fields be added without breaking the `delete` signature.
+    record delete-request {
+        lifecycle: lifecycle-config,
+    }
+
+    /// Lifecycle policy for a resource.
+    ///
+    /// New fields (e.g. `ignore-changes`, `replace-triggered-by`) are
+    /// non-breaking record extensions. Mirrors
+    /// `carina_core::resource::LifecycleConfig`.
+    record lifecycle-config {
+        /// Force-delete the resource on `delete` (e.g. non-empty S3
+        /// buckets, IAM users with attached policies).
+        force-delete: bool,
+        /// Create the new resource before destroying the old one during
+        /// replacement.
+        create-before-destroy: bool,
+        /// Reject `delete` operations entirely; surfaces a
+        /// `prevent-destroy` provider-error instead of attempting the
+        /// API call.
+        prevent-destroy: bool,
+    }
+
+    /// Structured error returned by every provider operation.
+    ///
+    /// Variants are mutually exclusive — host code can match exhaustively
+    /// to dispatch retry / abort / not-found / escalate strategies in a
+    /// type-safe way. Each variant carries an `error-detail` with the
+    /// human-readable message and contextual fields (`resource-id`,
+    /// `cause`, `provider-name`).
+    variant provider-error {
+        /// User-supplied input is invalid (bad attribute value, schema
+        /// violation, configuration mismatch). Not retriable.
+        invalid-input(error-detail),
+        /// The cloud API rejected the request (HTTP 4xx/5xx, server-side
+        /// error). May be retriable depending on the cause; the host
+        /// inspects `error-detail.cause` for further classification.
+        api-error(error-detail),
+        /// Resource was not found at the cloud API. `read` returns this
+        /// instead of an empty state when the underlying resource has
+        /// been deleted out-of-band. `delete` returns this when the
+        /// resource is already gone.
+        not-found(error-detail),
+        /// Operation timed out before completing. Retriable with
+        /// backoff.
+        timeout(error-detail),
+        /// Provider-internal failure (panic, unexpected state, missing
+        /// schema entry, etc.). Should be escalated as a bug rather
+        /// than retried.
+        internal(error-detail),
+    }
+
+    /// Contextual metadata attached to every `provider-error` variant.
+    ///
+    /// Fields mirror the existing `carina_core::provider::ProviderError`
+    /// host-side struct. The `cause` chain is flattened to a string
+    /// because WIT cannot represent `dyn std::error::Error`.
+    record error-detail {
+        /// Human-readable message.
+        message: string,
+        /// Resource the error pertains to, if known.
+        resource-id: option<resource-id>,
+        /// Flattened representation of the underlying cause chain, if
+        /// any. Empty when the error has no upstream cause.
+        cause: option<string>,
+        /// Provider name (e.g. `aws`, `awscc`) when the error is
+        /// raised at provider-init / `create-provider` boundary points
+        /// where the name is known but no specific resource is in
+        /// scope.
+        provider-name: option<string>,
+    }
 }
