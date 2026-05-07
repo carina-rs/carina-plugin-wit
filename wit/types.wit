@@ -34,4 +34,78 @@ interface types {
         id: resource-id,
         attributes: list<tuple<string, value>>,
     }
+
+    /// Kind of a single `patch-op`.
+    ///
+    /// `add` and `replace` carry `some(value)` on the patch-op; `remove`
+    /// carries `none`.
+    variant patch-op-kind {
+        /// User added a key that did not previously appear in the desired state.
+        add,
+        /// User changed the value of an existing key in the desired state.
+        replace,
+        /// User removed a key that previously appeared in the desired state.
+        remove,
+    }
+
+    record patch-op {
+        kind: patch-op-kind,
+        /// Top-level attribute name. Nested-field patches are a future extension.
+        key: string,
+        /// `some(_)` for `add` and `replace`; `none` for `remove`.
+        value: option<value>,
+    }
+
+    /// A structured description of the user's intended change to a resource.
+    ///
+    /// Each `patch-op` corresponds to a key the user explicitly specified or
+    /// removed in the desired state. Fields the user has never specified do
+    /// not appear in the patch. Providers MUST NOT modify any attribute that
+    /// is not represented in `ops`.
+    record update-patch {
+        ops: list<patch-op>,
+    }
+
+    /// Per-operation request record for `provider.create`.
+    record create-request {
+        /// Full desired state for the new resource. Named `res` because
+        /// `resource` is a reserved keyword in WIT.
+        res: resource-def,
+    }
+
+    /// Per-operation request record for `provider.read`.
+    ///
+    /// Has no operationally meaningful fields today; the record exists so
+    /// future fields (e.g. a freshness hint or an attribute projection)
+    /// can be added without breaking the `read` signature. The single
+    /// `reserved` field is a placeholder because the wasm component model
+    /// rejects records with zero fields — providers MUST ignore it.
+    record read-request {
+        reserved: bool,
+    }
+
+    /// Per-operation request record for `provider.update`.
+    ///
+    /// `current` is the current provider-side state; `patch` is the user's
+    /// intended changes only. The patch is the sole source of truth for
+    /// what the provider should write — there is no separate `to: resource`
+    /// because exposing the full desired resource invites providers to
+    /// touch fields the user never specified (the root cause of
+    /// `carina-rs/carina#2559`).
+    ///
+    /// Named `current` rather than `from` because `from` is a reserved
+    /// keyword in WIT.
+    record update-request {
+        current: state,
+        patch: update-patch,
+    }
+
+    /// Per-operation request record for `provider.delete`.
+    ///
+    /// `options` is a JSON-serialized provider options map. Wrapping it in
+    /// a record lets future fields (e.g. lifecycle hints) be added without
+    /// breaking the `delete` signature.
+    record delete-request {
+        options: string,
+    }
 }
