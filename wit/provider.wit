@@ -126,4 +126,26 @@ interface provider {
         states: list<tuple<string, state>>,
         saved-attrs: list<tuple<string, list<tuple<string, value>>>>,
     ) -> list<tuple<string, state>>;
+
+    /// Merge provider-level `default-tags` into each resource's `tags` attribute.
+    ///
+    /// For every resource whose schema has a `tags` attribute:
+    ///
+    /// - If the resource has no `tags`, set it to `default-tags`.
+    /// - If the resource has `tags`, merge `default-tags` in such that the
+    ///   resource-level tags win on key collision.
+    ///
+    /// The provider also records which keys came from `default-tags` in the
+    /// `_default_tag_keys` internal metadata attribute on each touched
+    /// resource, so subsequent layers (display, differ) can distinguish
+    /// inherited from explicit tags.
+    ///
+    /// Schemas are not passed across the boundary — the guest already owns
+    /// its schema registry from earlier `schemas()` initialization, so it
+    /// can do the `tags`-attribute check internally without round-tripping
+    /// the schemas back across the WASM boundary on every plan.
+    merge-default-tags: func(
+        resources: list<resource-def>,
+        default-tags: list<tuple<string, value>>,
+    ) -> list<resource-def>;
 }
