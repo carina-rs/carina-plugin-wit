@@ -29,12 +29,21 @@ interface provider {
 
     /// Read the current provider-side state of an existing resource.
     ///
+    /// `identifier` is `option<string>` because a refresh may run
+    /// against a resource declared in the desired state but not yet
+    /// represented in the saved state (a fresh component, or a newly
+    /// added resource on top of an existing component). When
+    /// `identifier` is `none` the provider MUST return a `not-found`
+    /// state without contacting any external API; encoding presence
+    /// in the type makes that contract enforceable at compile time
+    /// across host and guest.
+    ///
     /// `request` carries no operationally meaningful fields today; it
     /// exists so future fields (e.g. a freshness hint or an attribute
     /// projection) can be added without breaking the `read` signature.
     read: func(
         id: resource-id,
-        identifier: string,
+        identifier: option<string>,
         request: read-request,
     ) -> result<state, provider-error>;
 
