@@ -102,19 +102,21 @@ interface types {
 
     /// Per-operation request record for `provider.delete`.
     ///
-    /// `lifecycle` carries the resource's lifecycle policy (force-delete,
-    /// create-before-destroy, prevent-destroy). Wrapping it in a record
-    /// lets future fields be added without breaking the `delete` signature.
+    /// `directives` carries the resource's Carina-side directives
+    /// (force-delete, create-before-destroy, prevent-destroy). Wrapping
+    /// it in a record lets future fields be added without breaking the
+    /// `delete` signature.
     record delete-request {
-        lifecycle: lifecycle-config,
+        directives: directives,
     }
 
-    /// Lifecycle policy for a resource.
+    /// Carina-side directives for a resource.
     ///
-    /// New fields (e.g. `ignore-changes`, `replace-triggered-by`) are
-    /// non-breaking record extensions. Mirrors
-    /// `carina_core::resource::LifecycleConfig`.
-    record lifecycle-config {
+    /// These are instructions to Carina about how to handle the
+    /// resource, not metadata about the resource itself. New fields
+    /// (e.g. `ignore-changes`, `replace-triggered-by`) are non-breaking
+    /// record extensions. Mirrors `carina_core::resource::Directives`.
+    record directives {
         /// Force-delete the resource on `delete` (e.g. non-empty S3
         /// buckets, IAM users with attached policies).
         force-delete: bool,

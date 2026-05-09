@@ -88,10 +88,10 @@ interface provider {
 
     /// Delete an existing resource.
     ///
-    /// `request.lifecycle` carries the resource's lifecycle policy
-    /// (force-delete, create-before-destroy, prevent-destroy). Wrapping
-    /// the parameter in a record lets future fields be added without
-    /// breaking the `delete` signature.
+    /// `request.directives` carries the resource's Carina-side
+    /// directives (force-delete, create-before-destroy, prevent-destroy).
+    /// Wrapping the parameter in a record lets future fields be added
+    /// without breaking the `delete` signature.
     delete: func(
         id: resource-id,
         identifier: string,
