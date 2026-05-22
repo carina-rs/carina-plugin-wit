@@ -9,6 +9,7 @@ interface provider {
         update-request,
         delete-request,
         provider-error,
+        type-identity,
     };
 
     /// Returns JSON-serialized ProviderInfo
@@ -111,7 +112,12 @@ interface provider {
     /// Returns Ok(()) if valid or the type is unknown.
     /// Returns Err(invalid-input(...)) if the value is invalid for the
     /// given type.
-    validate-custom-type: func(type-name: string, value: string) -> result<_, provider-error>;
+    ///
+    /// `ty` is a structured `type-identity` rather than a flat string:
+    /// the plugin matches on the discrete axes instead of splitting a
+    /// dotted/snake-cased name, so two providers' same-named custom
+    /// types never collide on lookup.
+    validate-custom-type: func(ty: type-identity, value: string) -> result<_, provider-error>;
 
     /// Returns JSON-serialized HashMap<String, HashMap<String, HashMap<String, String>>>
     /// for DSL enum alias resolution.
