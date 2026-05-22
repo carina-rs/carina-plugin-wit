@@ -129,6 +129,35 @@ interface types {
         prevent-destroy: bool,
     }
 
+    /// Structured identity of a provider-defined custom type.
+    ///
+    /// Replaces the flat dotted/snake-cased type-name string previously
+    /// passed to `validate-custom-type`. Carrying the axes as discrete
+    /// fields keeps two providers' same-named types distinct
+    /// (`aws.Region` vs `gcp.Region`) without the host or plugin having
+    /// to split a string apart and re-classify the segments.
+    ///
+    /// Identity equality is per-axis: two identities denote the same
+    /// type iff every *populated* axis is equal. An empty axis means
+    /// "not distinguished on this axis" — a wider type, higher in the
+    /// base chain — not a wildcard.
+    ///
+    /// Mirrors `carina_core`'s structured type identity. The dotted
+    /// display form (`aws.iam.Role.Arn`) is derived from this record,
+    /// never the source of truth.
+    record type-identity {
+        /// Provider segment, e.g. `"aws"`. Empty string when the type
+        /// carries no provider axis (a truly provider-agnostic wrapper).
+        provider: string,
+        /// Service / resource segments between the provider and the
+        /// kind, e.g. `["iam", "Role"]` for `aws.iam.Role.Arn`. Empty
+        /// for a provider-scoped but resource-agnostic type such as the
+        /// generic `aws.Arn`.
+        segments: list<string>,
+        /// The type's own name, e.g. `"Arn"`, `"VpcId"`, `"Region"`.
+        kind: string,
+    }
+
     /// Structured error returned by every provider operation.
     ///
     /// Variants are mutually exclusive — host code can match exhaustively
