@@ -192,6 +192,16 @@ interface types {
     /// Fields mirror the existing `carina_core::provider::ProviderError`
     /// host-side struct. The `cause` chain is flattened to a string
     /// because WIT cannot represent `dyn std::error::Error`.
+    ///
+    /// The `operation` / `status` / `code` / `request-id` quartet
+    /// carries cloud-API metadata in a cloud-agnostic shape so the host
+    /// can render a multi-line, labeled error display without each
+    /// provider doing its own ad-hoc string formatting. AWS providers
+    /// populate them from the SDK's `ProvideErrorMetadata` trait;
+    /// future GCP/Azure providers can use the same fields (status =
+    /// HTTP, code = string identifier, request-id = correlation id).
+    /// All four are optional — non-cloud providers leave them empty.
+    /// See carina-rs/carina#3242 for the full design rationale.
     record error-detail {
         /// Human-readable message.
         message: string,
@@ -205,5 +215,24 @@ interface types {
         /// where the name is known but no specific resource is in
         /// scope.
         provider-name: option<string>,
+        /// Service-qualified API operation that failed, e.g.
+        /// `iam.ListRoles`, `s3.HeadBucket`. Optional because not
+        /// every error originates from a single named API call.
+        operation: option<string>,
+        /// HTTP status code from the cloud-API response, when the
+        /// error came from an HTTP-based service call.
+        status: option<u16>,
+        /// Application-level error code returned by the cloud API,
+        /// e.g. `AccessDenied`, `NoSuchBucket`. Distinct from
+        /// `status` — multiple codes can share a status (HTTP 403 can
+        /// be `AccessDenied`, `InvalidAccessKeyId`,
+        /// `SignatureDoesNotMatch`, etc.) and the code is what makes
+        /// the actionable diagnosis.
+        code: option<string>,
+        /// Correlation id from the cloud-API response (AWS
+        /// `x-amzn-RequestId`, GCP `X-Goog-Request-Id`, Azure
+        /// `x-ms-request-id`, …). Operators paste this into support
+        /// tickets to let the provider look up server-side logs.
+        request-id: option<string>,
     }
 }
