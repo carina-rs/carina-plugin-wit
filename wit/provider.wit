@@ -26,7 +26,7 @@ interface provider {
     provider-config-attribute-types: func() -> string;
 
     validate-config: func(attrs: list<tuple<string, value>>) -> result<_, provider-error>;
-    initialize: func(attrs: list<tuple<string, value>>) -> result<_, provider-error>;
+    initialize: async func(attrs: list<tuple<string, value>>) -> result<_, provider-error>;
 
     /// Read the current provider-side state of an existing resource.
     ///
@@ -42,7 +42,7 @@ interface provider {
     /// `request` carries no operationally meaningful fields today; it
     /// exists so future fields (e.g. a freshness hint or an attribute
     /// projection) can be added without breaking the `read` signature.
-    read: func(
+    read: async func(
         id: resource-id,
         identifier: option<string>,
         request: read-request,
@@ -53,12 +53,12 @@ interface provider {
     /// `user_name` for `aws.identitystore.user`). Zero-input data sources
     /// should still route through `read` on the host side — callers
     /// dispatch on `resource.is_data_source()` before picking this path.
-    read-data-source: func(res: resource-def) -> result<state, provider-error>;
+    read-data-source: async func(res: resource-def) -> result<state, provider-error>;
 
     /// Create the resource described by `request.res` and return the
     /// resulting state. (`res` rather than `resource` because `resource`
     /// is a reserved keyword in WIT.)
-    create: func(
+    create: async func(
         id: resource-id,
         request: create-request,
     ) -> result<state, provider-error>;
@@ -81,7 +81,7 @@ interface provider {
     /// identifiers; it MUST NOT be used to derive additional fields to
     /// write back. (Named `current` because `from` is a reserved keyword
     /// in WIT.)
-    update: func(
+    update: async func(
         id: resource-id,
         identifier: string,
         request: update-request,
@@ -93,7 +93,7 @@ interface provider {
     /// directives (force-delete, create-before-destroy, prevent-destroy).
     /// Wrapping the parameter in a record lets future fields be added
     /// without breaking the `delete` signature.
-    delete: func(
+    delete: async func(
         id: resource-id,
         identifier: string,
         request: delete-request,
