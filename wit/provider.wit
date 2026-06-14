@@ -10,6 +10,7 @@ interface provider {
         delete-request,
         provider-error,
         type-identity,
+        binding-pattern,
     };
 
     enum plan-op {
@@ -110,6 +111,24 @@ interface provider {
         id: resource-id,
         operation: plan-op,
     ) -> list<string>;
+
+    /// For a wait whose `until` predicate reads `attr-path` of the resource
+    /// at `target-id`, return binding-name patterns describing which neighbor
+    /// effects could mutate that attribute. The planner matches these patterns
+    /// against the plan's bindings at plan time and adds the matched bindings
+    /// to the wait's dependency set, so a wait whose satisfier set is empty
+    /// or all-failed reports `unsatisfiable` at dispatch time instead of
+    /// polling to timeout.
+    ///
+    /// Default behaviour is "no hint": return an empty list. Implement only
+    /// for resource types where the carina-side dependency graph cannot
+    /// infer the mutator relationship (e.g., ACM Certificate's `status`
+    /// flipping to `issued` on creation of matching `route53.RecordSet`
+    /// records).
+    satisfier-hint: func(
+        target-id: resource-id,
+        attr-path: list<string>,
+    ) -> list<binding-pattern>;
 
     /// Returns JSON-serialized HashMap<String, Vec<CompletionValue>> where key is
     /// the config attribute name (e.g., "region") and value is a list of completion

@@ -235,4 +235,30 @@ interface types {
         /// tickets to let the provider look up server-side logs.
         request-id: option<string>,
     }
+
+    /// Binding-name pattern used by `satisfier-hint` to declare which
+    /// neighbor effects in a plan can mutate a wait's observed attribute.
+    /// The planner matches every pattern against the plan's binding names
+    /// at plan time.
+    variant binding-pattern {
+        /// Match a binding by exact name.
+        exact(string),
+        /// Match every expanded child of a for-loop binding `<base>`;
+        /// i.e. every binding whose name starts with `<base>[`.
+        for-loop-children(string),
+        /// Match every binding of a given resource type whose attribute
+        /// `attr` references the target's attribute at `from`. This is the
+        /// pattern ACM's `Certificate` uses to point at the
+        /// `route53.RecordSet` entries whose `name` comes from
+        /// `target.domain-validation-options[*].resource-record.name`.
+        ///
+        /// `attr` and `from` are dotted attribute paths.
+        attribute-match(attribute-match-pattern),
+    }
+
+    record attribute-match-pattern {
+        resource-type: string,
+        attr: list<string>,
+        from: list<string>,
+    }
 }
