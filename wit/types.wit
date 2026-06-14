@@ -259,6 +259,6 @@ interface types {
     record attribute-match-pattern {
         resource-type: string,
         attr: list<string>,
-        from: list<string>,
+        %from: list<string>,
     }
 }
