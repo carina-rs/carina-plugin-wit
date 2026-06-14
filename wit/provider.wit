@@ -107,7 +107,7 @@ interface provider {
     ) -> result<_, provider-error>;
 
     required-permissions: func(
-        resource-type: string,
+        id: resource-id,
         operation: plan-op,
     ) -> list<string>;
 
