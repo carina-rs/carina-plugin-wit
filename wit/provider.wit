@@ -12,6 +12,13 @@ interface provider {
         type-identity,
     };
 
+    enum plan-op {
+        create,
+        read,
+        update,
+        delete,
+    }
+
     /// Returns JSON-serialized ProviderInfo
     info: func() -> string;
 
@@ -98,6 +105,11 @@ interface provider {
         identifier: string,
         request: delete-request,
     ) -> result<_, provider-error>;
+
+    required-permissions: func(
+        resource-type: string,
+        operation: plan-op,
+    ) -> list<string>;
 
     /// Returns JSON-serialized HashMap<String, Vec<CompletionValue>> where key is
     /// the config attribute name (e.g., "region") and value is a list of completion
