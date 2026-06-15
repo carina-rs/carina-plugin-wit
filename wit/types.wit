@@ -30,6 +30,21 @@ interface types {
         exists: bool,
     }
 
+    variant create-outcome {
+        success(state),
+        partial-success(create-partial-success),
+    }
+
+    record create-partial-success {
+        state: state,
+        diagnostic: partial-create-diagnostic,
+    }
+
+    record partial-create-diagnostic {
+        reason: string,
+        missing-attributes: list<string>,
+    }
+
     record resource-def {
         id: resource-id,
         attributes: list<tuple<string, value>>,
