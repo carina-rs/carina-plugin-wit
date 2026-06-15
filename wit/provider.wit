@@ -2,6 +2,7 @@ interface provider {
     use types.{
         resource-id,
         state,
+        create-outcome,
         resource-def,
         value,
         create-request,
@@ -69,7 +70,7 @@ interface provider {
     create: func(
         id: resource-id,
         request: create-request,
-    ) -> result<state, provider-error>;
+    ) -> result<create-outcome, provider-error>;
 
     /// Update an existing resource by applying `request.patch`.
     ///
