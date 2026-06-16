@@ -11,6 +11,8 @@ interface types {
         int-val(s64),
         float-val(f64),
         str-val(string),
+        /// JSON-encoded array of strings for canonical string_or_list_of_strings values
+        string-list-val(string),
         /// JSON-encoded array
         list-val(string),
         /// JSON-encoded object
