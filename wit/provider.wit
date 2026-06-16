@@ -3,6 +3,7 @@ interface provider {
         resource-id,
         state,
         create-outcome,
+        update-outcome,
         resource-def,
         value,
         create-request,
@@ -94,7 +95,7 @@ interface provider {
         id: resource-id,
         identifier: string,
         request: update-request,
-    ) -> result<state, provider-error>;
+    ) -> result<update-outcome, provider-error>;
 
     /// Delete an existing resource.
     ///

@@ -37,10 +37,20 @@ interface types {
 
     record create-partial-success {
         state: state,
-        diagnostic: partial-create-diagnostic,
+        diagnostic: partial-read-diagnostic,
     }
 
-    record partial-create-diagnostic {
+    variant update-outcome {
+        success(state),
+        partial-success(update-partial-success),
+    }
+
+    record update-partial-success {
+        state: state,
+        diagnostic: partial-read-diagnostic,
+    }
+
+    record partial-read-diagnostic {
         reason: string,
         missing-attributes: list<string>,
     }
