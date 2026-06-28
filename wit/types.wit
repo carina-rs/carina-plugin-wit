@@ -2,7 +2,7 @@ interface types {
     record resource-id {
         provider: string,
         resource-type: string,
-        name: string,
+        identity: string,
     }
 
     /// Attribute values serialized as JSON strings for complex/nested types.
