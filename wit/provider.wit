@@ -157,14 +157,31 @@ interface provider {
     /// Structure: resource_type -> attr_name -> alias -> canonical_value.
     get-enum-aliases: func() -> string;
 
-    normalize-desired: func(resources: list<resource-def>) -> list<resource-def>;
+    /// Normalize desired resources before planning.
+    ///
+    /// Boundary conversion failures and provider normalization failures are
+    /// returned as `provider-error`; traps are reserved for guest crashes.
+    normalize-desired: func(
+        resources: list<resource-def>,
+    ) -> result<list<resource-def>, provider-error>;
+
+    /// Normalize persisted resource states before they are consumed by the
+    /// planner or executor.
+    ///
+    /// Boundary conversion failures and provider normalization failures are
+    /// returned as `provider-error`; traps are reserved for guest crashes.
     normalize-state: func(
         states: list<tuple<string, state>>,
-    ) -> list<tuple<string, state>>;
+    ) -> result<list<tuple<string, state>>, provider-error>;
+
+    /// Restore saved attributes into states returned by `read`.
+    ///
+    /// Boundary conversion failures and provider hydration failures are
+    /// returned as `provider-error`; traps are reserved for guest crashes.
     hydrate-read-state: func(
         states: list<tuple<string, state>>,
         saved-attrs: list<tuple<string, list<tuple<string, value>>>>,
-    ) -> list<tuple<string, state>>;
+    ) -> result<list<tuple<string, state>>, provider-error>;
 
     /// Merge provider-level `default-tags` into each resource's `tags` attribute.
     ///
@@ -183,8 +200,11 @@ interface provider {
     /// its schema registry from earlier `schemas()` initialization, so it
     /// can do the `tags`-attribute check internally without round-tripping
     /// the schemas back across the WASM boundary on every plan.
+    ///
+    /// Boundary conversion failures and provider merge failures are returned
+    /// as `provider-error`; traps are reserved for guest crashes.
     merge-default-tags: func(
         resources: list<resource-def>,
         default-tags: list<tuple<string, value>>,
-    ) -> list<resource-def>;
+    ) -> result<list<resource-def>, provider-error>;
 }
