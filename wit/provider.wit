@@ -152,11 +152,6 @@ interface provider {
     /// types never collide on lookup.
     validate-custom-type: func(ty: type-identity, value: string) -> result<_, provider-error>;
 
-    /// Returns JSON-serialized HashMap<String, HashMap<String, HashMap<String, String>>>
-    /// for DSL enum alias resolution.
-    /// Structure: resource_type -> attr_name -> alias -> canonical_value.
-    get-enum-aliases: func() -> string;
-
     /// Normalize desired resources before planning.
     ///
     /// Boundary conversion failures and provider normalization failures are
