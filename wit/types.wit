@@ -26,9 +26,37 @@ interface types {
         secret-val(string),
     }
 
+    /// A value carried at a persisted-state boundary. Unlike `value`, this
+    /// type can represent a redacted secret without making it available at
+    /// ordinary desired/cloud-value positions.
+    ///
+    /// The JSON payloads of `list-val` and `map-val` use the persisted
+    /// encoding: redacted secrets are `{ "$secret": "<digest>" }` and user
+    /// object keys beginning with `$` have one additional leading `$`.
+    variant persisted-value {
+        bool-val(bool),
+        int-val(s64),
+        float-val(f64),
+        str-val(string),
+        /// A persisted redacted secret. The payload is the bare secret digest.
+        redacted-secret-val(string),
+        /// JSON-encoded array of strings for canonical string_or_list_of_strings values
+        string-list-val(string),
+        /// JSON-encoded array using the persisted encoding
+        list-val(string),
+        /// JSON-encoded object using the persisted encoding
+        map-val(string),
+    }
+
     record state {
         identifier: option<string>,
         attributes: list<tuple<string, value>>,
+        exists: bool,
+    }
+
+    record persisted-state {
+        identifier: option<string>,
+        attributes: list<tuple<string, persisted-value>>,
         exists: bool,
     }
 
@@ -43,12 +71,12 @@ interface types {
     }
 
     variant update-outcome {
-        success(state),
+        success(persisted-state),
         partial-success(update-partial-success),
     }
 
     record update-partial-success {
-        state: state,
+        state: persisted-state,
         diagnostic: partial-read-diagnostic,
     }
 
@@ -113,17 +141,19 @@ interface types {
 
     /// Per-operation request record for `provider.update`.
     ///
-    /// `current` is the current provider-side state; `patch` is the user's
-    /// intended changes only. The patch is the sole source of truth for
-    /// what the provider should write — there is no separate `to: resource`
-    /// because exposing the full desired resource invites providers to
-    /// touch fields the user never specified (the root cause of
-    /// `carina-rs/carina#2559`).
+    /// `current` is persisted state and may contain redacted-secret digests,
+    /// never secret plaintext. Providers MUST NOT send those digests to the
+    /// cloud. `patch` is the user's intended changes only and is the sole
+    /// source of truth for what the provider should write — there is no
+    /// separate `to: resource` because exposing the full desired resource
+    /// invites providers to touch fields the user never specified (the root
+    /// cause of `carina-rs/carina#2559`). Providers MUST carry stored values
+    /// not changed by the patch forward as-is into `update-outcome`.
     ///
     /// Named `current` rather than `from` because `from` is a reserved
     /// keyword in WIT.
     record update-request {
-        current: state,
+        current: persisted-state,
         patch: update-patch,
     }
 
