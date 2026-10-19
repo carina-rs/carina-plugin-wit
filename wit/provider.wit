@@ -2,10 +2,12 @@ interface provider {
     use types.{
         resource-id,
         state,
+        persisted-state,
         create-outcome,
         update-outcome,
         resource-def,
         value,
+        persisted-value,
         create-request,
         read-request,
         update-request,
@@ -86,10 +88,13 @@ interface provider {
     /// providers to touch fields the user never specified (the root cause
     /// of `carina-rs/carina#2559`).
     ///
-    /// `request.current` is the current provider-side state and may be
-    /// used for read-modify-write paths or for resolving server-assigned
-    /// identifiers; it MUST NOT be used to derive additional fields to
-    /// write back. (Named `current` because `from` is a reserved keyword
+    /// `request.current` is persisted state and may contain redacted-secret
+    /// digests, never secret plaintext. It may be used for read-modify-write
+    /// paths or for resolving server-assigned identifiers, but redacted-secret
+    /// digests MUST NOT be sent to the cloud and `current` MUST NOT be used to
+    /// derive additional fields to write back. Providers MUST carry stored
+    /// values not changed by `request.patch` forward as-is into the
+    /// `update-outcome`. (Named `current` because `from` is a reserved keyword
     /// in WIT.)
     update: func(
         id: resource-id,
@@ -166,16 +171,16 @@ interface provider {
     /// Boundary conversion failures and provider normalization failures are
     /// returned as `provider-error`; traps are reserved for guest crashes.
     normalize-state: func(
-        states: list<tuple<string, state>>,
-    ) -> result<list<tuple<string, state>>, provider-error>;
+        states: list<tuple<string, persisted-state>>,
+    ) -> result<list<tuple<string, persisted-state>>, provider-error>;
 
     /// Restore saved attributes into states returned by `read`.
     ///
     /// Boundary conversion failures and provider hydration failures are
     /// returned as `provider-error`; traps are reserved for guest crashes.
     hydrate-read-state: func(
-        states: list<tuple<string, state>>,
-        saved-attrs: list<tuple<string, list<tuple<string, value>>>>,
-    ) -> result<list<tuple<string, state>>, provider-error>;
+        states: list<tuple<string, persisted-state>>,
+        saved-attrs: list<tuple<string, list<tuple<string, persisted-value>>>>,
+    ) -> result<list<tuple<string, persisted-state>>, provider-error>;
 
 }
