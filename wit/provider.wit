@@ -69,14 +69,19 @@ interface provider {
     /// dispatch on `resource.is_data_source()` before picking this path.
     read-data-source: func(res: resource-def) -> result<state, provider-error>;
 
-    /// Create the resource described by `request.res` and return the
-    /// resulting state. (`res` rather than `resource` because `resource`
-    /// is a reserved keyword in WIT.)
+    /// Perform one short create step for the resource described by
+    /// `request.res`. (`res` rather than `resource` because `resource` is a
+    /// reserved keyword in WIT.) If the external operation has not settled,
+    /// return `pending`; never wait or poll inside this call. Each call must
+    /// finish well under the host's per-call hard timeout.
     create: func(
         id: resource-id,
         request: create-request,
     ) -> result<create-outcome, provider-error>;
 
+    /// Perform one short poll step for a pending create. The host passes the
+    /// original request on every poll. This may return `pending` again; never
+    /// wait in-call, and never put request or secret data in the token.
     poll-create: func(
         id: resource-id,
         request: create-request,
@@ -104,12 +109,20 @@ interface provider {
     /// values not changed by `request.patch` forward as-is into the
     /// `update-outcome`. (Named `current` because `from` is a reserved keyword
     /// in WIT.)
+    ///
+    /// This export performs one short step. If the external operation has not
+    /// settled, return `pending`; never wait or poll inside this call. Each
+    /// call must finish well under the host's per-call hard timeout.
     update: func(
         id: resource-id,
         identifier: string,
         request: update-request,
     ) -> result<update-outcome, provider-error>;
 
+    /// Perform one short poll step for a pending update. The host passes the
+    /// original identifier and request on every poll. This may return
+    /// `pending` again; never wait in-call, and never put request or secret
+    /// data in the token.
     poll-update: func(
         id: resource-id,
         identifier: string,
@@ -123,12 +136,20 @@ interface provider {
     /// directives (force-delete, create-before-destroy, prevent-destroy).
     /// Wrapping the parameter in a record lets future fields be added
     /// without breaking the `delete` signature.
+    ///
+    /// This export performs one short step. If the external operation has not
+    /// settled, return `pending`; never wait or poll inside this call. Each
+    /// call must finish well under the host's per-call hard timeout.
     delete: func(
         id: resource-id,
         identifier: string,
         request: delete-request,
     ) -> result<delete-outcome, provider-error>;
 
+    /// Perform one short poll step for a pending delete. The host passes the
+    /// original identifier and request on every poll. This may return
+    /// `pending` again; never wait in-call, and never put request or secret
+    /// data in the token.
     poll-delete: func(
         id: resource-id,
         identifier: string,

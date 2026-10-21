@@ -63,8 +63,8 @@ interface types {
     /// An operation the provider started but has not finished.
     record pending-operation {
         /// Opaque to the host; only this provider's matching poll export
-        /// interprets it. Must not carry request payloads: the host passes the
-        /// original request back on every poll.
+        /// interprets it. Must not carry request or secret data: the host
+        /// passes the original request back on every poll.
         token: string,
         /// When the provider wants the next poll. The host clamps it to [1, 300].
         poll-after-secs: u32,
