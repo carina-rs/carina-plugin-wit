@@ -5,6 +5,8 @@ interface provider {
         persisted-state,
         create-outcome,
         update-outcome,
+        delete-outcome,
+        pending-operation,
         resource-def,
         value,
         persisted-value,
@@ -75,6 +77,12 @@ interface provider {
         request: create-request,
     ) -> result<create-outcome, provider-error>;
 
+    poll-create: func(
+        id: resource-id,
+        request: create-request,
+        pending: pending-operation,
+    ) -> result<create-outcome, provider-error>;
+
     /// Update an existing resource by applying `request.patch`.
     ///
     /// Each `patch-op` corresponds to a key the user explicitly specified
@@ -102,6 +110,13 @@ interface provider {
         request: update-request,
     ) -> result<update-outcome, provider-error>;
 
+    poll-update: func(
+        id: resource-id,
+        identifier: string,
+        request: update-request,
+        pending: pending-operation,
+    ) -> result<update-outcome, provider-error>;
+
     /// Delete an existing resource.
     ///
     /// `request.directives` carries the resource's Carina-side
@@ -112,7 +127,14 @@ interface provider {
         id: resource-id,
         identifier: string,
         request: delete-request,
-    ) -> result<_, provider-error>;
+    ) -> result<delete-outcome, provider-error>;
+
+    poll-delete: func(
+        id: resource-id,
+        identifier: string,
+        request: delete-request,
+        pending: pending-operation,
+    ) -> result<delete-outcome, provider-error>;
 
     required-permissions: func(
         id: resource-id,
