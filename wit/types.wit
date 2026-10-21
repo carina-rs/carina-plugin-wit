@@ -60,9 +60,20 @@ interface types {
         exists: bool,
     }
 
+    /// An operation the provider started but has not finished.
+    record pending-operation {
+        /// Opaque to the host; only this provider's matching poll export
+        /// interprets it. Must not carry request or secret data: the host
+        /// passes the original request back on every poll.
+        token: string,
+        /// When the provider wants the next poll. The host clamps it to [1, 300].
+        poll-after-secs: u32,
+    }
+
     variant create-outcome {
         success(state),
         partial-success(create-partial-success),
+        pending(pending-operation),
     }
 
     record create-partial-success {
@@ -73,6 +84,12 @@ interface types {
     variant update-outcome {
         success(persisted-state),
         partial-success(update-partial-success),
+        pending(pending-operation),
+    }
+
+    variant delete-outcome {
+        deleted,
+        pending(pending-operation),
     }
 
     record update-partial-success {
