@@ -60,6 +60,30 @@ interface types {
         exists: bool,
     }
 
+    /// Ordinary-value state known to identify an existing provider-side
+    /// resource. Successful reads and create outcomes use this form; update
+    /// outcomes use `applied-persisted-state`. The host rejects an empty
+    /// identifier.
+    record applied-state {
+        identifier: string,
+        attributes: list<tuple<string, value>>,
+    }
+
+    /// Persisted-value form of state observed after a successful update.
+    /// The host rejects an empty identifier.
+    record applied-persisted-state {
+        identifier: string,
+        attributes: list<tuple<string, persisted-value>>,
+    }
+
+    /// Result of reading a managed resource by its provider identifier.
+    /// `found` carries the non-empty identifier observed by the provider, so
+    /// an existing resource can never cross the boundary without one.
+    variant read-outcome {
+        not-found,
+        found(applied-state),
+    }
+
     /// An operation the provider started but has not finished.
     record pending-operation {
         /// Opaque to the host; only this provider's matching poll export
@@ -71,18 +95,18 @@ interface types {
     }
 
     variant create-outcome {
-        success(state),
+        success(applied-state),
         partial-success(create-partial-success),
         pending(pending-operation),
     }
 
     record create-partial-success {
-        state: state,
+        state: applied-state,
         diagnostic: partial-read-diagnostic,
     }
 
     variant update-outcome {
-        success(persisted-state),
+        success(applied-persisted-state),
         partial-success(update-partial-success),
         pending(pending-operation),
     }
@@ -93,7 +117,7 @@ interface types {
     }
 
     record update-partial-success {
-        state: persisted-state,
+        state: applied-persisted-state,
         diagnostic: partial-read-diagnostic,
     }
 

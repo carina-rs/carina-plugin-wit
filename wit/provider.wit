@@ -2,6 +2,7 @@ interface provider {
     use types.{
         resource-id,
         state,
+        read-outcome,
         persisted-state,
         create-outcome,
         update-outcome,
@@ -44,23 +45,19 @@ interface provider {
 
     /// Read the current provider-side state of an existing resource.
     ///
-    /// `identifier` is `option<string>` because a refresh may run
-    /// against a resource declared in the desired state but not yet
-    /// represented in the saved state (a fresh component, or a newly
-    /// added resource on top of an existing component). When
-    /// `identifier` is `none` the provider MUST return a `not-found`
-    /// state without contacting any external API; encoding presence
-    /// in the type makes that contract enforceable at compile time
-    /// across host and guest.
+    /// `identifier` is the validated, non-empty cloud-side identifier of a
+    /// managed resource. Resources without saved state are not sent across
+    /// this boundary. A successful existing-resource observation is returned
+    /// as `found(applied-state)`, which also requires a non-empty identifier.
     ///
     /// `request` carries no operationally meaningful fields today; it
     /// exists so future fields (e.g. a freshness hint or an attribute
     /// projection) can be added without breaking the `read` signature.
     read: func(
         id: resource-id,
-        identifier: option<string>,
+        identifier: string,
         request: read-request,
-    ) -> result<state, provider-error>;
+    ) -> result<read-outcome, provider-error>;
 
     /// Read a data source resource. Receives the full `resource-def` so
     /// providers can see user-supplied input attributes (e.g. the
