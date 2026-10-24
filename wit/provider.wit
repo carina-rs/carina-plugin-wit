@@ -4,7 +4,13 @@ interface provider {
         state,
         read-outcome,
         persisted-state,
-        create-outcome,
+        create-step,
+        create-verdict,
+        pending-create,
+        poll-verdict,
+        resume-pending,
+        resume-step,
+        resume-verdict,
         update-outcome,
         delete-outcome,
         pending-operation,
@@ -70,20 +76,39 @@ interface provider {
     /// `request.res`. (`res` rather than `resource` because `resource` is a
     /// reserved keyword in WIT.) If the external operation has not settled,
     /// return `pending`; never wait or poll inside this call. Each call must
-    /// finish well under the host's per-call hard timeout.
+    /// finish well under the host's per-call hard timeout. An `untracked`
+    /// verdict means nothing reached the cloud; `created` means a resource
+    /// exists and the host records a row for it.
     create: func(
         id: resource-id,
         request: create-request,
-    ) -> result<create-outcome, provider-error>;
+    ) -> result<create-step, create-verdict>;
 
     /// Perform one short poll step for a pending create. The host passes the
     /// original request on every poll. This may return `pending` again; never
-    /// wait in-call, and never put request or secret data in the token.
+    /// wait in-call. The token must be free of secrets and decodable by later
+    /// releases of the same provider. `undetermined` means the provider cannot
+    /// decide, for example because the token or request failed to decode, and
+    /// the host keeps the in-flight row.
     poll-create: func(
         id: resource-id,
         request: create-request,
-        pending: pending-operation,
-    ) -> result<create-outcome, provider-error>;
+        pending: pending-create,
+    ) -> result<create-step, poll-verdict>;
+
+    /// Resume one short step of a create persisted by an earlier invocation.
+    /// A resumed create carries no `sent`; the host uses the persisted
+    /// envelope. Its token must be free of secrets and decodable by later
+    /// releases of the same provider. `untracked` means nothing reached the
+    /// cloud; `created` means a resource exists and the host records a row;
+    /// and `undetermined` means the provider cannot decide, for example
+    /// because the token or request failed to decode, so the host keeps the
+    /// in-flight row.
+    resume-create: func(
+        id: resource-id,
+        request: create-request,
+        pending: resume-pending,
+    ) -> result<resume-step, resume-verdict>;
 
     /// Update an existing resource by applying `request.patch`.
     ///

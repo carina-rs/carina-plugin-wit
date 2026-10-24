@@ -88,16 +88,120 @@ interface types {
     record pending-operation {
         /// Opaque to the host; only this provider's matching poll export
         /// interprets it. Must not carry request or secret data: the host
-        /// passes the original request back on every poll.
+        /// passes the original request back on every poll. A create token
+        /// must also remain decodable by later releases of the same provider.
         token: string,
         /// When the provider wants the next poll. The host clamps it to [1, 300].
         poll-after-secs: u32,
     }
 
-    variant create-outcome {
+    /// Observation made while finishing or recovering a create. It carries
+    /// either the read result or the read failure, never a desired-state copy.
+    variant observation {
+        read(read-outcome),
+        read-failed(provider-error),
+    }
+
+    /// Attributes carried by the create request that reached the cloud.
+    /// `all` means every request attribute; `only` names the subset sent.
+    variant sent-attributes {
+        all,
+        only(list<string>),
+    }
+
+    /// A create operation that remains in flight. `identifier`, when present,
+    /// is the provider identifier known so far; the host rejects an empty
+    /// identifier. The create token must be free of secrets and remain
+    /// decodable by later releases of the same provider.
+    record pending-create {
+        operation: pending-operation,
+        identifier: option<string>,
+        sent: sent-attributes,
+    }
+
+    /// A failed create whose resource exists. The host records a row from the
+    /// observation and sent attributes so the cloud resource cannot be lost.
+    /// `identifier` is canonical if the provider canonicalized it, and the
+    /// host rejects an empty identifier. `read` is never a desired-state copy.
+    record created-failure {
+        identifier: string,
+        read: observation,
+        sent: sent-attributes,
+        error: provider-error,
+    }
+
+    /// A non-failing create or poll step: completed success, partial success,
+    /// or an operation that remains safely tracked as pending.
+    variant create-step {
         success(applied-state),
         partial-success(create-partial-success),
-        pending(pending-operation),
+        pending(pending-create),
+    }
+
+    /// Typed verdict from the initial create call. `untracked` means nothing
+    /// reached the cloud. `created` means the resource exists and the host
+    /// records a row. `discarded` means the cloud reports no resource to keep.
+    variant create-verdict {
+        untracked(provider-error),
+        created(created-failure),
+        discarded(provider-error),
+    }
+
+    /// Typed verdict from polling a create. `untracked` means nothing reached
+    /// the cloud; `created` means the resource exists and the host records a
+    /// row; and `undetermined` means the provider cannot decide, for example
+    /// because the token or request failed to decode, so the host keeps the
+    /// in-flight row. `discarded` means there is no resource to keep.
+    variant poll-verdict {
+        untracked(provider-error),
+        created(created-failure),
+        discarded(provider-error),
+        undetermined(provider-error),
+    }
+
+    /// A create operation that remains pending while being resumed.
+    /// A resumed create carries no `sent`; the host uses the persisted
+    /// envelope. The host rejects an empty `identifier`. The token must remain
+    /// decodable by later releases of the same provider and must be free of
+    /// secrets.
+    record resume-pending {
+        operation: pending-operation,
+        identifier: option<string>,
+    }
+
+    /// A failed resumed create whose resource exists. The host records a row
+    /// from this observation and the persisted envelope. A resumed create
+    /// carries no `sent`, and `read` is never a desired-state copy. The host
+    /// rejects an empty `identifier`.
+    record resumed-failure {
+        identifier: string,
+        read: observation,
+        error: provider-error,
+    }
+
+    /// A non-failing resume step. `completed` is a found read and carries the
+    /// canonical identifier if canonicalized; the host rejects an empty
+    /// identifier. A resumed create carries no `sent`; only `resent` starts a
+    /// new ordinary create whose nested step describes what that request sent.
+    variant resume-step {
+        completed(applied-state),
+        pending(resume-pending),
+        resent(create-step),
+    }
+
+    /// Typed verdict from resuming a create. `untracked` means nothing reached
+    /// the cloud; `created` means the resource exists and the host records a
+    /// row; and `undetermined` means the provider cannot decide, for example
+    /// because the token or request failed to decode, so the host keeps the
+    /// in-flight row. `discarded` means there is no resource to keep. A resumed
+    /// create carries no `sent`; only `resent` wraps the verdict of a newly
+    /// sent ordinary create.
+    variant resume-verdict {
+        untracked(provider-error),
+        created(resumed-failure),
+        discarded(provider-error),
+        undetermined(provider-error),
+        resent(create-verdict),
     }
 
     record create-partial-success {
