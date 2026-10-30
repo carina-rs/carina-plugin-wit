@@ -1,6 +1,9 @@
 interface provider {
     use types.{
         resource-id,
+        reference-scope-values,
+        reference-scope,
+        initialize-result,
         state,
         read-outcome,
         persisted-state,
@@ -33,6 +36,17 @@ interface provider {
         delete,
     }
 
+    /// One desired resource prepared for provider normalization.
+    ///
+    /// `resource` contains only attributes the WASM value boundary can encode.
+    /// `deferred` contains the unique names of top-level attributes the host
+    /// held back because their values are unresolved. A deferred name MUST NOT
+    /// also appear in `resource.attributes`.
+    record desired-resource {
+        %resource: resource-def,
+        deferred: list<string>,
+    }
+
     /// Returns JSON-serialized ProviderInfo
     info: func() -> string;
 
@@ -47,7 +61,10 @@ interface provider {
     provider-config-attribute-types: func() -> string;
 
     validate-config: func(attrs: list<tuple<string, value>>) -> result<_, provider-error>;
-    initialize: func(attrs: list<tuple<string, value>>) -> result<_, provider-error>;
+
+    /// Initialize the provider and report the scope the host uses to expand
+    /// short references before comparing provider-read values.
+    initialize: func(attrs: list<tuple<string, value>>) -> result<initialize-result, provider-error>;
 
     /// Read the current provider-side state of an existing resource.
     ///
@@ -78,7 +95,11 @@ interface provider {
     /// return `pending`; never wait or poll inside this call. Each call must
     /// finish well under the host's per-call hard timeout. An `untracked`
     /// verdict means nothing reached the cloud; `created` means a resource
-    /// exists and the host records a row for it.
+    /// exists and the host records a row for it. `in-flight` on the initial
+    /// create means the request may have reached the cloud and the provider
+    /// reports the error that stopped this step and supplies the continuation
+    /// to poll. The host keeps the in-flight row with that continuation,
+    /// including any identifier learned during the call.
     create: func(
         id: resource-id,
         request: create-request,
@@ -87,9 +108,13 @@ interface provider {
     /// Perform one short poll step for a pending create. The host passes the
     /// original request on every poll. This may return `pending` again; never
     /// wait in-call. The token must be free of secrets and decodable by later
-    /// releases of the same provider. `undetermined` means the provider cannot
-    /// decide, for example because the token or request failed to decode, and
-    /// the host keeps the in-flight row.
+    /// releases of the same provider. `undetermined` means only that the
+    /// provider could not decode its token or request and has no newer
+    /// continuation; the host keeps the continuation it started the call with.
+    /// `in-flight` means the provider still holds a continuation it can poll
+    /// and reports the error that stopped this step; the host keeps the
+    /// in-flight row with that continuation, including any identifier learned
+    /// during the call.
     poll-create: func(
         id: resource-id,
         request: create-request,
@@ -101,9 +126,12 @@ interface provider {
     /// envelope. Its token must be free of secrets and decodable by later
     /// releases of the same provider. `untracked` means nothing reached the
     /// cloud; `created` means a resource exists and the host records a row;
-    /// and `undetermined` means the provider cannot decide, for example
-    /// because the token or request failed to decode, so the host keeps the
-    /// in-flight row.
+    /// and `undetermined` means only that the provider could not decode its
+    /// token or request and has no newer continuation; the host keeps the
+    /// continuation it started the call with. `in-flight` means the provider
+    /// still holds a continuation it can resume and reports the error that
+    /// stopped this step; the host keeps the in-flight row with that
+    /// continuation, including any identifier learned during the call.
     resume-create: func(
         id: resource-id,
         request: create-request,
@@ -225,10 +253,15 @@ interface provider {
 
     /// Normalize desired resources before planning.
     ///
-    /// Boundary conversion failures and provider normalization failures are
-    /// returned as `provider-error`; traps are reserved for guest crashes.
+    /// Providers must distinguish a name in `deferred` from an attribute the
+    /// user omitted. Results correspond to inputs by list position. A returned
+    /// `resource-def` MUST NOT contain an attribute named in that input's
+    /// `deferred` list; the host rejects such a result and restores the
+    /// original unresolved value. Boundary conversion failures and provider
+    /// normalization failures are returned as `provider-error`; traps are
+    /// reserved for guest crashes.
     normalize-desired: func(
-        resources: list<resource-def>,
+        resources: list<desired-resource>,
     ) -> result<list<resource-def>, provider-error>;
 
     /// Normalize persisted resource states before they are consumed by the

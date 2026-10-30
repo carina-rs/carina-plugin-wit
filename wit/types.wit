@@ -5,6 +5,25 @@ interface types {
         identity: string,
     }
 
+    /// Values that let the host expand a short reference (for example a bare
+    /// name) into the long form the provider would read back.
+    record reference-scope-values {
+        partition: string,
+        region: string,
+        account: string,
+    }
+
+    /// `unavailable` means the host compares reference-form values exactly.
+    variant reference-scope {
+        available(reference-scope-values),
+        unavailable,
+    }
+
+    /// Result of a successful `initialize`.
+    record initialize-result {
+        reference-scope: reference-scope,
+    }
+
     /// Attribute values serialized as JSON strings for complex/nested types.
     variant value {
         bool-val(bool),
@@ -119,6 +138,12 @@ interface types {
         sent: sent-attributes,
     }
 
+    /// A create continuation retained after an error stopped the current step.
+    record create-in-flight {
+        pending: pending-create,
+        error: provider-error,
+    }
+
     /// A failed create whose resource exists. The host records a row from the
     /// observation and sent attributes so the cloud resource cannot be lost.
     /// `identifier` is canonical if the provider canonicalized it, and the
@@ -141,22 +166,32 @@ interface types {
     /// Typed verdict from the initial create call. `untracked` means nothing
     /// reached the cloud. `created` means the resource exists and the host
     /// records a row. `discarded` means the cloud reports no resource to keep.
+    /// `in-flight` means the provider still holds a continuation it can poll
+    /// and reports the error that stopped this step; the host keeps the
+    /// in-flight row with that continuation, including any identifier learned
+    /// during the call.
     variant create-verdict {
         untracked(provider-error),
         created(created-failure),
         discarded(provider-error),
+        in-flight(create-in-flight),
     }
 
     /// Typed verdict from polling a create. `untracked` means nothing reached
     /// the cloud; `created` means the resource exists and the host records a
-    /// row; and `undetermined` means the provider cannot decide, for example
-    /// because the token or request failed to decode, so the host keeps the
-    /// in-flight row. `discarded` means there is no resource to keep.
+    /// row; and `discarded` means there is no resource to keep. `undetermined`
+    /// means only that the provider could not decode its token or request and
+    /// has no newer continuation; the host keeps the continuation it started
+    /// the call with. `in-flight` means the provider still holds a continuation
+    /// it can poll and reports the error that stopped this step; the host keeps
+    /// the in-flight row with that continuation, including any identifier
+    /// learned during the call.
     variant poll-verdict {
         untracked(provider-error),
         created(created-failure),
         discarded(provider-error),
         undetermined(provider-error),
+        in-flight(create-in-flight),
     }
 
     /// A create operation that remains pending while being resumed.
@@ -167,6 +202,12 @@ interface types {
     record resume-pending {
         operation: pending-operation,
         identifier: option<string>,
+    }
+
+    /// A resume continuation retained after an error stopped the current step.
+    record resume-in-flight {
+        pending: resume-pending,
+        error: provider-error,
     }
 
     /// A failed resumed create whose resource exists. The host records a row
@@ -191,16 +232,20 @@ interface types {
 
     /// Typed verdict from resuming a create. `untracked` means nothing reached
     /// the cloud; `created` means the resource exists and the host records a
-    /// row; and `undetermined` means the provider cannot decide, for example
-    /// because the token or request failed to decode, so the host keeps the
-    /// in-flight row. `discarded` means there is no resource to keep. A resumed
-    /// create carries no `sent`; only `resent` wraps the verdict of a newly
-    /// sent ordinary create.
+    /// row; and `discarded` means there is no resource to keep. `undetermined`
+    /// means only that the provider could not decode its token or request and
+    /// has no newer continuation; the host keeps the continuation it started
+    /// the call with. `in-flight` means the provider still holds a continuation
+    /// it can resume and reports the error that stopped this step; the host
+    /// keeps the in-flight row with that continuation, including any identifier
+    /// learned during the call. A resumed create carries no `sent`; only
+    /// `resent` wraps the verdict of a newly sent ordinary create.
     variant resume-verdict {
         untracked(provider-error),
         created(resumed-failure),
         discarded(provider-error),
         undetermined(provider-error),
+        in-flight(resume-in-flight),
         resent(create-verdict),
     }
 
