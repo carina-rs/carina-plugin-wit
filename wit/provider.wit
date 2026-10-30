@@ -36,6 +36,17 @@ interface provider {
         delete,
     }
 
+    /// One desired resource prepared for provider normalization.
+    ///
+    /// `resource` contains only attributes the WASM value boundary can encode.
+    /// `deferred` contains the unique names of top-level attributes the host
+    /// held back because their values are unresolved. A deferred name MUST NOT
+    /// also appear in `resource.attributes`.
+    record desired-resource {
+        %resource: resource-def,
+        deferred: list<string>,
+    }
+
     /// Returns JSON-serialized ProviderInfo
     info: func() -> string;
 
@@ -242,10 +253,15 @@ interface provider {
 
     /// Normalize desired resources before planning.
     ///
-    /// Boundary conversion failures and provider normalization failures are
-    /// returned as `provider-error`; traps are reserved for guest crashes.
+    /// Providers must distinguish a name in `deferred` from an attribute the
+    /// user omitted. Results correspond to inputs by list position. A returned
+    /// `resource-def` MUST NOT contain an attribute named in that input's
+    /// `deferred` list; the host rejects such a result and restores the
+    /// original unresolved value. Boundary conversion failures and provider
+    /// normalization failures are returned as `provider-error`; traps are
+    /// reserved for guest crashes.
     normalize-desired: func(
-        resources: list<resource-def>,
+        resources: list<desired-resource>,
     ) -> result<list<resource-def>, provider-error>;
 
     /// Normalize persisted resource states before they are consumed by the
