@@ -17,6 +17,7 @@ interface provider {
         update-outcome,
         delete-outcome,
         pending-operation,
+        poll-request,
         resource-def,
         value,
         persisted-value,
@@ -114,11 +115,15 @@ interface provider {
     /// `in-flight` means the provider still holds a continuation it can poll
     /// and reports the error that stopped this step; the host keeps the
     /// in-flight row with that continuation, including any identifier learned
-    /// during the call.
+    /// during the call. `poll.finality` is `final-attempt` for the one poll at
+    /// the active deadline. That poll must settle a `read-back` phase instead
+    /// of returning another pending read-back; the host treats the latter as a
+    /// protocol violation and retains any known provider identifier.
     poll-create: func(
         id: resource-id,
         request: create-request,
         pending: pending-create,
+        poll: poll-request,
     ) -> result<create-step, poll-verdict>;
 
     /// Resume one short step of a create persisted by an earlier invocation.
@@ -173,12 +178,16 @@ interface provider {
     /// Perform one short poll step for a pending update. The host passes the
     /// original identifier and request on every poll. This may return
     /// `pending` again; never wait in-call, and never put request or secret
-    /// data in the token.
+    /// data in the token. `poll.finality` is `final-attempt` for the one poll
+    /// at the active deadline. That poll must settle a `read-back` phase
+    /// instead of returning another pending read-back; the host treats the
+    /// latter as a protocol violation and retains the existing identifier.
     poll-update: func(
         id: resource-id,
         identifier: string,
         request: update-request,
         pending: pending-operation,
+        poll: poll-request,
     ) -> result<update-outcome, provider-error>;
 
     /// Delete an existing resource.

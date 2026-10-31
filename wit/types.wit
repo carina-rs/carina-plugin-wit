@@ -103,7 +103,31 @@ interface types {
         found(applied-state),
     }
 
-    /// An operation the provider started but has not finished.
+    /// The part of a provider operation that remains pending.
+    enum pending-phase {
+        /// The provider-side create, update, or delete operation is still in progress.
+        operation,
+        /// The mutation completed, but its post-apply read is not complete yet.
+        read-back,
+    }
+
+    /// Whether the host can poll again within the active operation deadline.
+    enum poll-finality {
+        /// The host may issue another poll before the active deadline.
+        continue,
+        /// This is the one poll at the active deadline. A provider must not
+        /// return another `pending` result in the `read-back` phase. The host
+        /// treats that result as a protocol violation and retains any known
+        /// provider identifier for recovery.
+        final-attempt,
+    }
+
+    /// Host-owned scheduling information for one provider poll.
+    record poll-request {
+        finality: poll-finality,
+    }
+
+    /// An operation or post-apply read the provider has not finished.
     record pending-operation {
         /// Opaque to the host; only this provider's matching poll export
         /// interprets it. Must not carry request or secret data: the host
@@ -112,6 +136,8 @@ interface types {
         token: string,
         /// When the provider wants the next poll. The host clamps it to [1, 300].
         poll-after-secs: u32,
+        /// Selects the host-owned deadline used for the next poll.
+        phase: pending-phase,
     }
 
     /// Observation made while finishing or recovering a create. It carries
