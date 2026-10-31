@@ -1,10 +1,37 @@
 package carina:provider@0.1.0;
 
+interface aws-credentials {
+    record aws-credentials {
+        access-key-id: string,
+        secret-access-key: string,
+        session-token: option<string>,
+        /// Seconds since the Unix epoch. None means the credentials do not expire.
+        expires-at: option<u64>,
+    }
+
+    variant aws-credential-error {
+        /// No source in the host's chain produced credentials. The payload
+        /// is a host-rendered, secret-free explanation.
+        not-found(string),
+        /// A source was found but failed, for example an expired SSO
+        /// session or a network error. Host-rendered and secret-free.
+        provider-failed(string),
+    }
+
+    current-credentials: func() -> result<aws-credentials, aws-credential-error>;
+}
+
 world carina-provider {
     export provider;
 }
 
 world carina-provider-with-http {
     import wasi:http/outgoing-handler@0.2.6;
+    export provider;
+}
+
+world carina-provider-aws {
+    import wasi:http/outgoing-handler@0.2.6;
+    import aws-credentials;
     export provider;
 }
