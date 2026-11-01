@@ -16,7 +16,7 @@ interface provider {
         resume-verdict,
         update-outcome,
         delete-outcome,
-        pending-operation,
+        pending-update,
         pending-delete,
         poll-request,
         resource-def,
@@ -118,10 +118,10 @@ interface provider {
     /// in-flight row with that continuation, including any identifier learned
     /// during the call. `poll.finality` is `final-attempt` for the one poll at
     /// the active deadline. If that request was sent with
-    /// `pending.operation.phase` set to `read-back`, it must settle instead of
-    /// returning pending in either phase. If it was sent with phase `operation`,
-    /// another pending result is over budget even when it moves to `read-back`.
-    /// Returning from `read-back` to `operation` is always a protocol violation.
+    /// `pending.progress` set to `reading-back`, it must settle instead of
+    /// returning pending in either case. If it was sent with `operating`,
+    /// another pending result is over budget even when it moves to `reading-back`.
+    /// Returning from `reading-back` to `operating` is always a protocol violation.
     /// The host retains any known provider identifier and continuation for
     /// create recovery.
     poll-create: func(
@@ -142,13 +142,14 @@ interface provider {
     /// still holds a continuation it can resume and reports the error that
     /// stopped this step; the host keeps the in-flight row with that
     /// continuation, including any identifier learned during the call.
-    /// On the first call after loading state, `pending.operation.phase` and
-    /// `poll-after-secs` are non-authoritative: persisted state retains only
-    /// the token and optional identifier. Recover the actual phase from the
-    /// token or cloud operation; any pending result returned here establishes
+    /// On the first call after loading state, the phase selected by
+    /// `pending.progress` and `pending.operation.poll-after-secs` are
+    /// non-authoritative: persisted state retains only the token and optional
+    /// identifier, sent as `operating(identifier)`. Recover the actual phase
+    /// from the token or cloud operation; any pending result returned here establishes
     /// the phase used by later polls. `poll.finality` otherwise has the same
     /// host-owned deadline semantics as `poll-create`. A pending result must
-    /// not regress from `read-back` to `operation`.
+    /// not regress from `reading-back` to `operating`.
     resume-create: func(
         id: resource-id,
         request: create-request,
@@ -203,7 +204,7 @@ interface provider {
         id: resource-id,
         identifier: string,
         request: update-request,
-        pending: pending-operation,
+        pending: pending-update,
         poll: poll-request,
     ) -> result<update-outcome, provider-error>;
 
