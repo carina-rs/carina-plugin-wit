@@ -105,9 +105,11 @@ interface types {
 
     /// The part of a provider operation that remains pending.
     enum pending-phase {
-        /// The provider-side create, update, or delete operation is still in progress.
+        /// The provider-side create or update operation is still in progress.
         operation,
         /// The mutation completed, but its post-apply read is not complete yet.
+        /// Once a continuation enters this phase it must not return to
+        /// `operation`; the host treats that regression as a protocol violation.
         read-back,
     }
 
@@ -115,10 +117,11 @@ interface types {
     enum poll-finality {
         /// The host may issue another poll before the active deadline.
         continue,
-        /// This is the one poll at the active deadline. A provider must not
-        /// return another `pending` result in the `read-back` phase. The host
-        /// treats that result as a protocol violation and retains any known
-        /// provider identifier for recovery.
+        /// This is the one poll at the active deadline. Once read-back has
+        /// begun, a provider must settle on this call and must not return
+        /// `pending` in either phase. The host treats any such pending result
+        /// as a protocol violation and retains any known provider identifier
+        /// for recovery.
         final-attempt,
     }
 
@@ -127,7 +130,7 @@ interface types {
         finality: poll-finality,
     }
 
-    /// An operation or post-apply read the provider has not finished.
+    /// A create/update operation or post-apply read the provider has not finished.
     record pending-operation {
         /// Opaque to the host; only this provider's matching poll export
         /// interprets it. Must not carry request or secret data: the host
@@ -138,6 +141,17 @@ interface types {
         poll-after-secs: u32,
         /// Selects the host-owned deadline used for the next poll.
         phase: pending-phase,
+    }
+
+    /// A delete operation the provider has not finished. Delete has no
+    /// post-apply read-back phase, so this continuation deliberately carries
+    /// no phase.
+    record pending-delete {
+        /// Opaque to the host; only this provider's `poll-delete` export
+        /// interprets it. Must not carry request or secret data.
+        token: string,
+        /// When the provider wants the next poll. The host clamps it to [1, 300].
+        poll-after-secs: u32,
     }
 
     /// Observation made while finishing or recovering a create. It carries
@@ -246,12 +260,13 @@ interface types {
         error: provider-error,
     }
 
-    /// A non-failing resume step. `completed` is a found read and carries the
+    /// A non-failing resume step. `completed` and `partial-success` carry the
     /// canonical identifier if canonicalized; the host rejects an empty
     /// identifier. A resumed create carries no `sent`; only `resent` starts a
     /// new ordinary create whose nested step describes what that request sent.
     variant resume-step {
         completed(applied-state),
+        partial-success(create-partial-success),
         pending(resume-pending),
         resent(create-step),
     }
@@ -288,7 +303,7 @@ interface types {
 
     variant delete-outcome {
         deleted,
-        pending(pending-operation),
+        pending(pending-delete),
     }
 
     record update-partial-success {
