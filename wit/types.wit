@@ -103,12 +103,69 @@ interface types {
         found(applied-state),
     }
 
-    /// An operation the provider started but has not finished.
+    /// The part of a provider operation that remains pending.
+    enum pending-phase {
+        /// The provider-side create or update operation is still in progress.
+        operation,
+        /// The mutation completed, but its post-apply read is not complete yet.
+        /// Once a continuation enters this phase it must not return to
+        /// `operation`; the host treats that regression as a protocol violation.
+        read-back,
+    }
+
+    /// Whether the host can poll again within the active operation deadline.
+    enum poll-finality {
+        /// The host may issue another poll before the active deadline.
+        continue,
+        /// This is the one poll at the active deadline. If the request was
+        /// sent to a `read-back` continuation, the provider must settle and a
+        /// pending result in either phase is a protocol violation. If it was
+        /// sent to an `operation` continuation, another pending result is over
+        /// budget even when that result moves to `read-back`.
+        final-attempt,
+    }
+
+    /// Host-owned scheduling information for one provider poll.
+    record poll-request {
+        finality: poll-finality,
+    }
+
+    /// Provider-owned continuation and host-clamped poll interval.
     record pending-operation {
         /// Opaque to the host; only this provider's matching poll export
         /// interprets it. Must not carry request or secret data: the host
         /// passes the original request back on every poll. A create token
         /// must also remain decodable by later releases of the same provider.
+        token: string,
+        /// When the provider wants the next poll. The host clamps it to [1, 300].
+        poll-after-secs: u32,
+    }
+
+    /// An update or post-update read the provider has not finished.
+    /// The update request always carries the resource identifier.
+    record pending-update {
+        operation: pending-operation,
+        /// Selects the host-owned deadline used for the next poll.
+        phase: pending-phase,
+    }
+
+    /// Progress of an initial or resumed create. Read-back means the
+    /// mutation completed, so its identifier is required by the variant.
+    /// The host rejects empty identifiers in either case.
+    variant create-progress {
+        /// The mutation is still in progress; an identifier may be known.
+        operating(option<string>),
+        /// The mutation completed; only its post-apply read remains.
+        /// A continuation must not regress from this case to `operating`.
+        reading-back(string),
+    }
+
+    /// A delete operation the provider has not finished. Delete has no
+    /// post-apply read-back phase, so this continuation deliberately carries
+    /// no phase.
+    record pending-delete {
+        /// Opaque to the host; only this provider's `poll-delete` export
+        /// interprets it. Must not carry request or secret data.
         token: string,
         /// When the provider wants the next poll. The host clamps it to [1, 300].
         poll-after-secs: u32,
@@ -128,13 +185,12 @@ interface types {
         only(list<string>),
     }
 
-    /// A create operation that remains in flight. `identifier`, when present,
-    /// is the provider identifier known so far; the host rejects an empty
-    /// identifier. The create token must be free of secrets and remain
-    /// decodable by later releases of the same provider.
+    /// A create operation that remains in flight. Progress couples the
+    /// operation phase with its known identifier. The token must be free of
+    /// secrets and remain decodable by later releases of the same provider.
     record pending-create {
         operation: pending-operation,
-        identifier: option<string>,
+        progress: create-progress,
         sent: sent-attributes,
     }
 
@@ -196,12 +252,12 @@ interface types {
 
     /// A create operation that remains pending while being resumed.
     /// A resumed create carries no `sent`; the host uses the persisted
-    /// envelope. The host rejects an empty `identifier`. The token must remain
-    /// decodable by later releases of the same provider and must be free of
-    /// secrets.
+    /// envelope. Progress requires an identifier during read-back. The token
+    /// must remain decodable by later releases of the same provider and must
+    /// be free of secrets.
     record resume-pending {
         operation: pending-operation,
-        identifier: option<string>,
+        progress: create-progress,
     }
 
     /// A resume continuation retained after an error stopped the current step.
@@ -220,12 +276,13 @@ interface types {
         error: provider-error,
     }
 
-    /// A non-failing resume step. `completed` is a found read and carries the
+    /// A non-failing resume step. `completed` and `partial-success` carry the
     /// canonical identifier if canonicalized; the host rejects an empty
     /// identifier. A resumed create carries no `sent`; only `resent` starts a
     /// new ordinary create whose nested step describes what that request sent.
     variant resume-step {
         completed(applied-state),
+        partial-success(create-partial-success),
         pending(resume-pending),
         resent(create-step),
     }
@@ -257,12 +314,12 @@ interface types {
     variant update-outcome {
         success(applied-persisted-state),
         partial-success(update-partial-success),
-        pending(pending-operation),
+        pending(pending-update),
     }
 
     variant delete-outcome {
         deleted,
-        pending(pending-operation),
+        pending(pending-delete),
     }
 
     record update-partial-success {

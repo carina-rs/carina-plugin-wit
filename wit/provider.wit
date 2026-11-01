@@ -16,7 +16,9 @@ interface provider {
         resume-verdict,
         update-outcome,
         delete-outcome,
-        pending-operation,
+        pending-update,
+        pending-delete,
+        poll-request,
         resource-def,
         value,
         persisted-value,
@@ -114,11 +116,19 @@ interface provider {
     /// `in-flight` means the provider still holds a continuation it can poll
     /// and reports the error that stopped this step; the host keeps the
     /// in-flight row with that continuation, including any identifier learned
-    /// during the call.
+    /// during the call. `poll.finality` is `final-attempt` for the one poll at
+    /// the active deadline. If that request was sent with
+    /// `pending.progress` set to `reading-back`, it must settle instead of
+    /// returning pending in either case. If it was sent with `operating`,
+    /// another pending result is over budget even when it moves to `reading-back`.
+    /// Returning from `reading-back` to `operating` is always a protocol violation.
+    /// The host retains any known provider identifier and continuation for
+    /// create recovery.
     poll-create: func(
         id: resource-id,
         request: create-request,
         pending: pending-create,
+        poll: poll-request,
     ) -> result<create-step, poll-verdict>;
 
     /// Resume one short step of a create persisted by an earlier invocation.
@@ -132,10 +142,19 @@ interface provider {
     /// still holds a continuation it can resume and reports the error that
     /// stopped this step; the host keeps the in-flight row with that
     /// continuation, including any identifier learned during the call.
+    /// On the first call after loading state, the phase selected by
+    /// `pending.progress` and `pending.operation.poll-after-secs` are
+    /// non-authoritative: persisted state retains only the token and optional
+    /// identifier, sent as `operating(identifier)`. Recover the actual phase
+    /// from the token or cloud operation; any pending result returned here establishes
+    /// the phase used by later polls. `poll.finality` otherwise has the same
+    /// host-owned deadline semantics as `poll-create`. A pending result must
+    /// not regress from `reading-back` to `operating`.
     resume-create: func(
         id: resource-id,
         request: create-request,
         pending: resume-pending,
+        poll: poll-request,
     ) -> result<resume-step, resume-verdict>;
 
     /// Update an existing resource by applying `request.patch`.
@@ -173,12 +192,20 @@ interface provider {
     /// Perform one short poll step for a pending update. The host passes the
     /// original identifier and request on every poll. This may return
     /// `pending` again; never wait in-call, and never put request or secret
-    /// data in the token.
+    /// data in the token. `poll.finality` is `final-attempt` for the one poll
+    /// at the active deadline. If that request was sent with `pending.phase`
+    /// set to `read-back`, it must settle instead of returning pending in either
+    /// phase. If it was sent with phase `operation`, another pending result is
+    /// over budget even when it moves to `read-back`. Returning from `read-back`
+    /// to `operation` is always a protocol violation. On a violation the host
+    /// preserves the pre-update state row; the next plan refreshes that row
+    /// from the cloud before deciding recovery.
     poll-update: func(
         id: resource-id,
         identifier: string,
         request: update-request,
-        pending: pending-operation,
+        pending: pending-update,
+        poll: poll-request,
     ) -> result<update-outcome, provider-error>;
 
     /// Delete an existing resource.
@@ -200,12 +227,13 @@ interface provider {
     /// Perform one short poll step for a pending delete. The host passes the
     /// original identifier and request on every poll. This may return
     /// `pending` again; never wait in-call, and never put request or secret
-    /// data in the token.
+    /// data in the token. Delete pending has no phase because delete has no
+    /// post-apply read-back step.
     poll-delete: func(
         id: resource-id,
         identifier: string,
         request: delete-request,
-        pending: pending-operation,
+        pending: pending-delete,
     ) -> result<delete-outcome, provider-error>;
 
     required-permissions: func(
