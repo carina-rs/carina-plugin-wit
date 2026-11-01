@@ -29,6 +29,9 @@ interface provider {
         delete-request,
         provider-error,
         type-identity,
+        reference-request,
+        reference-outcome,
+        reference-error,
         binding-pattern,
     };
 
@@ -268,6 +271,11 @@ interface provider {
     /// dotted/snake-cased name, so two providers' same-named custom
     /// types never collide on lookup.
     validate-custom-type: func(ty: type-identity, value: string) -> result<_, provider-error>;
+
+    /// Resolve comparison-only references in this initialized provider instance.
+    /// Results correspond to requests by position; raw resource values are retained.
+    resolve-references: func(requests: list<reference-request>)
+        -> result<list<result<reference-outcome, reference-error>>, provider-error>;
 
     /// Normalize known leaves before planning, retaining every opaque slot
     /// exactly once in its original resource/top-level attribute. Resources

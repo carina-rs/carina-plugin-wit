@@ -490,6 +490,22 @@ interface types {
         kind: string,
     }
 
+    record reference-request {
+        ty: type-identity,
+        value: string,
+    }
+
+    variant reference-outcome {
+        resolved(string),
+        not-found(provider-error),
+    }
+
+    variant reference-error {
+        access-denied(provider-error),
+        transient(provider-error),
+        invalid-reference(provider-error),
+    }
+
     /// Structured error returned by every provider operation.
     ///
     /// Variants are mutually exclusive — host code can match exhaustively
