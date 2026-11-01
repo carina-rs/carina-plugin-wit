@@ -45,6 +45,22 @@ interface types {
         secret-val(string),
     }
 
+    /// Values used only by desired normalization, never CRUD/config/state.
+    /// Complex payloads use the normalization JSON codec: user keys beginning
+    /// with `$` gain one leading `$`; an unescaped singleton
+    /// `{ "$carina_deferred": <u32> }` represents a deferred leaf.
+    variant desired-value {
+        bool-val(bool),
+        int-val(s64),
+        float-val(f64),
+        str-val(string),
+        string-list-val(string),
+        list-val(string),
+        map-val(string),
+        /// Host-issued per-call slot. Opaque to provider normalizers.
+        deferred-val(u32),
+    }
+
     /// A value carried at a persisted-state boundary. Unlike `value`, this
     /// type can represent a redacted secret without making it available at
     /// ordinary desired/cloud-value positions.
@@ -330,6 +346,17 @@ interface types {
     record partial-read-diagnostic {
         reason: string,
         missing-attributes: list<string>,
+    }
+
+    /// One complete desired tree, used only by normalization input/output.
+    /// Concrete maps/lists stay structural. Secrets, references, unknowns and
+    /// other unresolved expressions are host-issued deferred leaves. Each slot
+    /// MUST occur exactly once in the returned resource and original top-level
+    /// attribute. Reordering inside that attribute is allowed. Ordinary CRUD,
+    /// persisted-state and configuration encodings are unchanged.
+    record desired-resource {
+        id: resource-id,
+        attributes: list<tuple<string, desired-value>>,
     }
 
     record resource-def {

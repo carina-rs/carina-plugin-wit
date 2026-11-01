@@ -21,6 +21,7 @@ interface provider {
         poll-request,
         resource-def,
         value,
+        desired-resource,
         persisted-value,
         create-request,
         read-request,
@@ -36,17 +37,6 @@ interface provider {
         read,
         update,
         delete,
-    }
-
-    /// One desired resource prepared for provider normalization.
-    ///
-    /// `resource` contains only attributes the WASM value boundary can encode.
-    /// `deferred` contains the unique names of top-level attributes the host
-    /// held back because their values are unresolved. A deferred name MUST NOT
-    /// also appear in `resource.attributes`.
-    record desired-resource {
-        %resource: resource-def,
-        deferred: list<string>,
     }
 
     /// Returns JSON-serialized ProviderInfo
@@ -279,18 +269,14 @@ interface provider {
     /// types never collide on lookup.
     validate-custom-type: func(ty: type-identity, value: string) -> result<_, provider-error>;
 
-    /// Normalize desired resources before planning.
-    ///
-    /// Providers must distinguish a name in `deferred` from an attribute the
-    /// user omitted. Results correspond to inputs by list position. A returned
-    /// `resource-def` MUST NOT contain an attribute named in that input's
-    /// `deferred` list; the host rejects such a result and restores the
-    /// original unresolved value. Boundary conversion failures and provider
-    /// normalization failures are returned as `provider-error`; traps are
-    /// reserved for guest crashes.
+    /// Normalize known leaves before planning, retaining every opaque slot
+    /// exactly once in its original resource/top-level attribute. Resources
+    /// correspond by list position; the returned count MUST match the input.
+    /// The host rejects missing, duplicated, unknown or foreign slots and
+    /// malformed values before applying any result. Failures use provider-error.
     normalize-desired: func(
         resources: list<desired-resource>,
-    ) -> result<list<resource-def>, provider-error>;
+    ) -> result<list<desired-resource>, provider-error>;
 
     /// Normalize persisted resource states before they are consumed by the
     /// planner or executor.
