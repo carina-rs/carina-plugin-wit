@@ -117,11 +117,11 @@ interface types {
     enum poll-finality {
         /// The host may issue another poll before the active deadline.
         continue,
-        /// This is the one poll at the active deadline. Once read-back has
-        /// begun, a provider must settle on this call and must not return
-        /// `pending` in either phase. The host treats any such pending result
-        /// as a protocol violation and retains any known provider identifier
-        /// for recovery.
+        /// This is the one poll at the active deadline. If the request was
+        /// sent to a `read-back` continuation, the provider must settle and a
+        /// pending result in either phase is a protocol violation. If it was
+        /// sent to an `operation` continuation, another pending result is over
+        /// budget even when that result moves to `read-back`.
         final-attempt,
     }
 
