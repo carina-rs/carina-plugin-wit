@@ -88,13 +88,15 @@ interface provider {
     /// `request.res`. (`res` rather than `resource` because `resource` is a
     /// reserved keyword in WIT.) If the external operation has not settled,
     /// return `pending`; never wait or poll inside this call. Each call must
-    /// finish well under the host's per-call hard timeout. An `untracked`
-    /// verdict means nothing reached the cloud; `created` means a resource
-    /// exists and the host records a row for it. `in-flight` on the initial
-    /// create means the request may have reached the cloud and the provider
-    /// reports the error that stopped this step and supplies the continuation
-    /// to poll. The host keeps the in-flight row with that continuation,
-    /// including any identifier learned during the call.
+    /// finish well under the host's per-call hard timeout. A `not-created`
+    /// verdict means nothing was created: no request left the provider, or the
+    /// cloud rejected it without creating anything.
+    /// `identifier-reported` means only that the provider reported an identifier;
+    /// the host records a row with it and re-checks existence by read-back.
+    /// `in-flight` on the initial create means the request may have reached the
+    /// cloud and the provider reports the error that stopped this step and
+    /// supplies the continuation to poll. The host keeps the in-flight row with
+    /// that continuation, including any identifier learned during the call.
     create: func(
         id: resource-id,
         request: create-request,
@@ -103,9 +105,10 @@ interface provider {
     /// Perform one short poll step for a pending create. The host passes the
     /// original request on every poll. This may return `pending` again; never
     /// wait in-call. The token must be free of secrets and decodable by later
-    /// releases of the same provider. `undetermined` means only that the
-    /// provider could not decode its token or request and has no newer
-    /// continuation; the host keeps the continuation it started the call with.
+    /// releases of the same provider. `unchanged` means this call established
+    /// nothing new: the provider could not decode its token or request and has
+    /// no newer continuation; the host keeps the continuation it started the
+    /// call with.
     /// `in-flight` means the provider still holds a continuation it can poll
     /// and reports the error that stopped this step; the host keeps the
     /// in-flight row with that continuation, including any identifier learned
@@ -127,14 +130,17 @@ interface provider {
     /// Resume one short step of a create persisted by an earlier invocation.
     /// A resumed create carries no `sent`; the host uses the persisted
     /// envelope. Its token must be free of secrets and decodable by later
-    /// releases of the same provider. `untracked` means nothing reached the
-    /// cloud; `created` means a resource exists and the host records a row;
-    /// and `undetermined` means only that the provider could not decode its
-    /// token or request and has no newer continuation; the host keeps the
-    /// continuation it started the call with. `in-flight` means the provider
-    /// still holds a continuation it can resume and reports the error that
-    /// stopped this step; the host keeps the in-flight row with that
-    /// continuation, including any identifier learned during the call.
+    /// releases of the same provider. `not-created` means nothing was created:
+    /// no request left the provider, or the cloud rejected it without creating
+    /// anything. `identifier-reported` means only that
+    /// the provider reported an identifier; the host records a row with it and
+    /// re-checks existence by read-back. `unchanged` means this call established
+    /// nothing new: the provider could not decode its token or request and has
+    /// no newer continuation; the host keeps the continuation it started the
+    /// call with. `in-flight` means the provider still holds a continuation it can
+    /// resume and reports the error that stopped this step; the host keeps the
+    /// in-flight row with that continuation, including any identifier learned
+    /// during the call.
     /// On the first call after loading state, the phase selected by
     /// `pending.progress` and `pending.operation.poll-after-secs` are
     /// non-authoritative: persisted state retains only the token and optional
