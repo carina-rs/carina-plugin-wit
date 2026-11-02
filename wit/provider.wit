@@ -89,7 +89,8 @@ interface provider {
     /// reserved keyword in WIT.) If the external operation has not settled,
     /// return `pending`; never wait or poll inside this call. Each call must
     /// finish well under the host's per-call hard timeout. A `not-created`
-    /// verdict means no request left the provider, so nothing was created.
+    /// verdict means nothing was created: no request left the provider, or the
+    /// cloud rejected it without creating anything.
     /// `identifier-reported` means only that the provider reported an identifier;
     /// the host records a row with it and re-checks existence by read-back.
     /// `in-flight` on the initial create means the request may have reached the
@@ -129,8 +130,9 @@ interface provider {
     /// Resume one short step of a create persisted by an earlier invocation.
     /// A resumed create carries no `sent`; the host uses the persisted
     /// envelope. Its token must be free of secrets and decodable by later
-    /// releases of the same provider. `not-created` means no request left the
-    /// provider, so nothing was created. `identifier-reported` means only that
+    /// releases of the same provider. `not-created` means nothing was created:
+    /// no request left the provider, or the cloud rejected it without creating
+    /// anything. `identifier-reported` means only that
     /// the provider reported an identifier; the host records a row with it and
     /// re-checks existence by read-back. `unchanged` means this call established
     /// nothing new: the provider could not decode its token or request and has

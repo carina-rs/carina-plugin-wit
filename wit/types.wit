@@ -237,8 +237,9 @@ interface types {
         pending(pending-create),
     }
 
-    /// Typed verdict from the initial create call. `not-created` means no
-    /// request left the provider, so nothing was created. `identifier-reported`
+    /// Typed verdict from the initial create call. `not-created` means nothing
+    /// was created: no request left the provider, or the cloud rejected it
+    /// without creating anything. `identifier-reported`
     /// means only that the provider reported an identifier; the host records a
     /// row with it and re-checks existence by read-back. `no-resource` means the
     /// provider determined there is no resource to keep, possibly after a
@@ -254,8 +255,9 @@ interface types {
         in-flight(create-in-flight),
     }
 
-    /// Typed verdict from polling a create. `not-created` means no request left
-    /// the provider, so nothing was created. `identifier-reported` means only
+    /// Typed verdict from polling a create. `not-created` means nothing was
+    /// created: no request left the provider, or the cloud rejected it without
+    /// creating anything. `identifier-reported` means only
     /// that the provider reported an identifier; the host records a row with it
     /// and re-checks existence by read-back. `no-resource` means the provider
     /// determined there is no resource to keep, possibly after a request was
@@ -312,8 +314,9 @@ interface types {
         resent(create-step),
     }
 
-    /// Typed verdict from resuming a create. `not-created` means no request left
-    /// the provider, so nothing was created. `identifier-reported` means only
+    /// Typed verdict from resuming a create. `not-created` means nothing was
+    /// created: no request left the provider, or the cloud rejected it without
+    /// creating anything. `identifier-reported` means only
     /// that the provider reported an identifier; the host records a row with it
     /// and re-checks existence by read-back. `no-resource` means the provider
     /// determined there is no resource to keep, possibly after a request was
