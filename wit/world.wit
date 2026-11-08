@@ -1,4 +1,4 @@
-package carina:provider@0.1.0;
+package carina:provider@0.2.0;
 
 interface aws-credentials {
     record aws-credentials {
@@ -22,15 +22,21 @@ interface aws-credentials {
 }
 
 world carina-provider {
+    import diagnostics;
+    import protected-material;
     export provider;
 }
 
 world carina-provider-with-http {
+    import diagnostics;
+    import protected-material;
     import wasi:http/outgoing-handler@0.2.6;
     export provider;
 }
 
 world carina-provider-aws {
+    import diagnostics;
+    import protected-material;
     import wasi:http/outgoing-handler@0.2.6;
     import aws-credentials;
     export provider;

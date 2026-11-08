@@ -10,6 +10,7 @@ Carina providers are WebAssembly components. This package, `carina:provider`, is
 |------|-----------------|
 | [`wit/types.wit`](wit/types.wit) | Shared data types: values, resources, schemas, effects, and errors |
 | [`wit/provider.wit`](wit/provider.wit) | The `provider` interface every provider exports |
+| [`wit/diagnostics.wit`](wit/diagnostics.wit) | Typed diagnostic events and confidential protected-material registration |
 | [`wit/world.wit`](wit/world.wit) | The worlds a provider can target, and host imports such as `aws-credentials` |
 
 The worlds are:
@@ -17,6 +18,8 @@ The worlds are:
 - `carina-provider` — a provider with no network access
 - `carina-provider-with-http` — a provider that calls HTTP APIs through `wasi:http`, limited to the hosts it declares
 - `carina-provider-aws` — an HTTP provider that also receives AWS credentials resolved by the host
+
+All three worlds import `diagnostics` and `protected-material`. Guest stdout and stderr are discarded by the host; diagnostic events bind through the host's redaction boundary. Credential and signing material must be registered before use.
 
 ## Using it
 
