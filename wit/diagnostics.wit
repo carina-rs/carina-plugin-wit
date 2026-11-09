@@ -1,6 +1,7 @@
 interface diagnostics {
     use types.{provider-error, resource-id, value};
     enum level { error, warn, info, debug, trace }
+    /// Advisory only: origins can add masking, never weaken host protection.
     enum value-origin { desired, observed, unclassified }
     record unbound-diagnostic { text: string }
     variant diagnostic-value { typed(value), json(string) }
@@ -57,16 +58,11 @@ interface protected-material {
         secret-access-key: string,
         session-token: option<string>,
     }
-    record signed-material {
-        authorization: string,
-        signature: option<string>,
-        query-secret-values: list<string>,
-    }
     variant material {
         aws-session(aws-session),
         github-token(string),
-        signed-material(signed-material),
     }
     enum registration-error { limit-exceeded, closed-context }
+    /// Idempotent by credential value; retains earlier generations for redaction.
     register: func(input: material) -> result<_, registration-error>;
 }
