@@ -1,0 +1,68 @@
+interface diagnostics {
+    use types.{provider-error, resource-id, value};
+    enum level { error, warn, info, debug, trace }
+    /// Advisory only: origins can add masking, never weaken host protection.
+    enum value-origin { desired, observed, unclassified }
+    record unbound-diagnostic { text: string }
+    variant diagnostic-value { typed(value), json(string) }
+    record value-diagnostic {
+        id: option<resource-id>,
+        path: list<string>,
+        origin: value-origin,
+        input: diagnostic-value,
+    }
+    record panic-diagnostic {
+        message: option<unbound-diagnostic>,
+        file: option<string>,
+        line: option<u32>,
+        column: option<u32>,
+    }
+    enum http-transport-code { dns, connect, tls, timeout, protocol, body }
+    record http-timings {
+        setup: u64,
+        handle: u64,
+        write-body: u64,
+        body-finish: u64,
+        pollable-block: u64,
+        get-response: u64,
+        read-body: u64,
+    }
+    record http-diagnostic {
+        method: string,
+        uri: string,
+        headers: list<tuple<string, list<u8>>>,
+        request-body-bytes: u64,
+        response-body-bytes: option<u64>,
+        status: option<u16>,
+        transport-code: option<http-transport-code>,
+        phases-ms: http-timings,
+    }
+    variant payload {
+        failure(provider-error),
+        diagnostic(unbound-diagnostic),
+        panic(panic-diagnostic),
+        value(value-diagnostic),
+        http(http-diagnostic),
+    }
+    record event {
+        severity: level,
+        context: option<unbound-diagnostic>,
+        body: payload,
+    }
+    emit: func(event: event);
+}
+
+interface protected-material {
+    record aws-session {
+        access-key-id: string,
+        secret-access-key: string,
+        session-token: option<string>,
+    }
+    variant material {
+        aws-session(aws-session),
+        github-token(string),
+    }
+    enum registration-error { limit-exceeded, closed-context }
+    /// Idempotent by credential value; retains earlier generations for redaction.
+    register: func(input: material) -> result<_, registration-error>;
+}
