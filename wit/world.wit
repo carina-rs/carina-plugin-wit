@@ -1,4 +1,4 @@
-package carina:provider@0.2.0;
+package carina:provider@0.3.0;
 
 interface aws-credentials {
     record aws-credentials {
