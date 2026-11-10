@@ -515,39 +515,50 @@ interface types {
         not-found(provider-error),
     }
 
+    /// Reference-resolution failure. Retry policy comes only from the inner
+    /// provider-error's error-detail.retryability.
     variant reference-error {
         access-denied(provider-error),
-        transient(provider-error),
+        /// Includes temporary resolution failures with transient retryability.
         invalid-reference(provider-error),
     }
 
     /// Structured error returned by every provider operation.
     ///
     /// Variants are mutually exclusive — host code can match exhaustively
-    /// to dispatch retry / abort / not-found / escalate strategies in a
-    /// type-safe way. Each variant carries an `error-detail` with the
+    /// to dispatch abort / not-found / escalate strategies. Retry policy
+    /// comes only from `error-detail.retryability`. Each variant carries the
     /// human-readable message and contextual fields (`resource-id`,
     /// `cause`, `provider-name`).
     variant provider-error {
         /// User-supplied input is invalid (bad attribute value, schema
-        /// violation, configuration mismatch). Not retriable.
+        /// violation, configuration mismatch).
         invalid-input(error-detail),
         /// The cloud API rejected the request (HTTP 4xx/5xx, server-side
-        /// error). May be retriable depending on the cause; the host
-        /// inspects `error-detail.cause` for further classification.
+        /// error). Retry policy comes from `error-detail.retryability`;
+        /// the flattened cause is diagnostic metadata only.
         api-error(error-detail),
         /// Resource was not found at the cloud API. `read` returns this
         /// instead of an empty state when the underlying resource has
         /// been deleted out-of-band. `delete` returns this when the
         /// resource is already gone.
         not-found(error-detail),
-        /// Operation timed out before completing. Retriable with
-        /// backoff.
+        /// Operation timed out before completing. This kind alone does
+        /// not imply retryability.
         timeout(error-detail),
         /// Provider-internal failure (panic, unexpected state, missing
-        /// schema entry, etc.). Should be escalated as a bug rather
-        /// than retried.
+        /// schema entry, etc.). Retry policy remains explicit in the detail.
         internal(error-detail),
+    }
+
+    /// Exclusive provider-authored retry policy. Diagnostic text never changes it.
+    enum error-retryability {
+        /// The provider has not classified the failure as retryable.
+        unclassified,
+        /// A temporary failure, including throttling, that may be retried.
+        transient,
+        /// Deletion must wait for a dependent resource to go away.
+        dependency-blocked,
     }
 
     /// Contextual metadata attached to every `provider-error` variant.
@@ -566,6 +577,8 @@ interface types {
     /// All four are optional — non-cloud providers leave them empty.
     /// See carina-rs/carina#3242 for the full design rationale.
     record error-detail {
+        /// Required typed retry policy, independent of message, cause and code.
+        retryability: error-retryability,
         /// Human-readable message.
         message: string,
         /// Resource the error pertains to, if known.
